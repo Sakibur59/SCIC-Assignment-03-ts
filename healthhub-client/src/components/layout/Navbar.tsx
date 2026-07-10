@@ -14,9 +14,13 @@ import {
   Menu, 
   X,
   LayoutDashboard,
-  Clock,
+  ChevronDown,
+  Users,
+  PlusCircle,
   Stethoscope,
-  ChevronDown
+  Clock,
+  BarChart3,
+  UserCog
 } from 'lucide-react';
 
 export const Navbar = () => {
@@ -45,17 +49,17 @@ export const Navbar = () => {
       .slice(0, 2);
   };
 
-  // Get user role badge color
-  const getRoleColor = (role: string) => {
+  // Get role display name
+  const getRoleDisplay = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'bg-red-500';
+        return 'Administrator';
       case 'doctor':
-        return 'bg-blue-500';
+        return 'Doctor';
       case 'patient':
-        return 'bg-green-500';
+        return 'Patient';
       default:
-        return 'bg-gray-500';
+        return 'User';
     }
   };
 
@@ -63,6 +67,132 @@ export const Navbar = () => {
     logout();
     setIsDropdownOpen(false);
     router.push('/');
+  };
+
+  // Role-based menu items (Simplified - 4/5 items each)
+  const getDropdownItems = () => {
+    const role = user?.role;
+
+    // Common items for all roles
+    const commonItems = [
+      {
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        href: '/dashboard',
+        color: 'text-blue-500',
+      },
+    ];
+
+    // Patient-specific items (5 items)
+    const patientItems = [
+      {
+        label: 'My Appointments',
+        icon: Calendar,
+        href: '/appointments',
+        color: 'text-green-500',
+      },
+      {
+        label: 'Book Appointment',
+        icon: PlusCircle,
+        href: '/appointment',
+        color: 'text-blue-500',
+      },
+      {
+        label: 'Medical Records',
+        icon: FileText,
+        href: '/records',
+        color: 'text-purple-500',
+      },
+      {
+        label: 'My Doctors',
+        icon: Stethoscope,
+        href: '/my-doctors',
+        color: 'text-pink-500',
+      },
+      {
+        label: 'Settings',
+        icon: Settings,
+        href: '/settings',
+        color: 'text-gray-500',
+      },
+    ];
+
+    // Doctor-specific items (5 items)
+    const doctorItems = [
+      {
+        label: 'My Schedule',
+        icon: Clock,
+        href: '/doctor/schedule',
+        color: 'text-blue-500',
+      },
+      {
+        label: 'Appointments',
+        icon: Calendar,
+        href: '/doctor/appointments',
+        color: 'text-green-500',
+      },
+      {
+        label: 'My Patients',
+        icon: Users,
+        href: '/doctor/patients',
+        color: 'text-purple-500',
+      },
+      {
+        label: 'Earnings',
+        icon: BarChart3,
+        href: '/doctor/earnings',
+        color: 'text-emerald-500',
+      },
+      {
+        label: 'Settings',
+        icon: Settings,
+        href: '/doctor/settings',
+        color: 'text-gray-500',
+      },
+    ];
+
+    // Admin-specific items (5 items)
+    const adminItems = [
+      {
+        label: 'Admin Dashboard',
+        icon: BarChart3,
+        href: '/admin/dashboard',
+        color: 'text-red-500',
+      },
+      {
+        label: 'User Management',
+        icon: Users,
+        href: '/admin/users',
+        color: 'text-blue-500',
+      },
+      {
+        label: 'Doctor Management',
+        icon: Stethoscope,
+        href: '/admin/doctors',
+        color: 'text-green-500',
+      },
+      {
+        label: 'Appointments',
+        icon: Calendar,
+        href: '/admin/appointments',
+        color: 'text-purple-500',
+      },
+      {
+        label: 'Settings',
+        icon: UserCog,
+        href: '/admin/settings',
+        color: 'text-gray-500',
+      },
+    ];
+
+    // Return items based on role
+    if (role === 'admin') {
+      return [...commonItems, ...adminItems];
+    } else if (role === 'doctor') {
+      return [...commonItems, ...doctorItems];
+    } else {
+      return [...commonItems, ...patientItems];
+    }
   };
 
   return (
@@ -94,7 +224,7 @@ export const Navbar = () => {
             ))}
           </div>
 
-          {/* Desktop Auth - Updated with Avatar */}
+          {/* Desktop Auth - with Avatar */}
           <div className="hidden md:flex items-center gap-4">
             {isAuthenticated ? (
               <div className="relative">
@@ -133,7 +263,7 @@ export const Navbar = () => {
                     />
                     
                     {/* Dropdown */}
-                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
                       {/* User Info */}
                       <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-blue-100/50 border-b border-gray-100">
                         <div className="flex items-center gap-3">
@@ -153,54 +283,26 @@ export const Navbar = () => {
                                 user?.role === 'doctor' ? 'bg-blue-100 text-blue-700' :
                                 'bg-green-100 text-green-700'
                               }`}>
-                                {user?.role || 'Patient'}
+                                {getRoleDisplay(user?.role || 'patient')}
                               </span>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Menu Items */}
+                      {/* Menu Items - Role Based (4-5 items) */}
                       <div className="py-1">
-                        {/* Dashboard */}
-                        <Link
-                          href="/dashboard"
-                          onClick={() => setIsDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                        >
-                          <LayoutDashboard className="h-4 w-4 text-blue-500" />
-                          Dashboard
-                        </Link>
-
-                        {/* My Appointments */}
-                        <Link
-                          href="/appointments"
-                          onClick={() => setIsDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                        >
-                          <Calendar className="h-4 w-4 text-blue-500" />
-                          My Appointments
-                        </Link>
-
-                        {/* Medical Records */}
-                        <Link
-                          href="/records"
-                          onClick={() => setIsDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                        >
-                          <FileText className="h-4 w-4 text-blue-500" />
-                          Medical Records
-                        </Link>
-
-                        {/* Settings */}
-                        <Link
-                          href="/settings"
-                          onClick={() => setIsDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                        >
-                          <Settings className="h-4 w-4 text-blue-500" />
-                          Settings
-                        </Link>
+                        {getDropdownItems().map((item, index) => (
+                          <Link
+                            key={index}
+                            href={item.href}
+                            onClick={() => setIsDropdownOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                          >
+                            <item.icon className={`h-4 w-4 ${item.color}`} />
+                            {item.label}
+                          </Link>
+                        ))}
 
                         {/* Divider */}
                         <div className="border-t border-gray-100 my-1"></div>
@@ -272,6 +374,13 @@ export const Navbar = () => {
                     <div>
                       <p className="text-sm font-medium text-gray-800">{user?.name}</p>
                       <p className="text-xs text-gray-500">{user?.email}</p>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${
+                        user?.role === 'admin' ? 'bg-red-100 text-red-700' :
+                        user?.role === 'doctor' ? 'bg-blue-100 text-blue-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {getRoleDisplay(user?.role || 'patient')}
+                      </span>
                     </div>
                   </div>
                   <button
