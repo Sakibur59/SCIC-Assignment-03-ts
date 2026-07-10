@@ -52,12 +52,12 @@ export default function DashboardLayout({
     return null;
   }
 
-  // Role-based menu items (সব Role এর জন্য Fixed)
+  // ✅ Role-based menu items (Dashboard এর ভিতরে)
   const getMenuItems = (): MenuItem[] => {
     const role = user?.role;
     const items: MenuItem[] = [];
 
-    // ✅ Dashboard - সবার জন্য
+    // Dashboard Home
     items.push({
       label: 'Dashboard',
       icon: LayoutDashboard,
@@ -70,26 +70,32 @@ export default function DashboardLayout({
         {
           label: 'My Appointments',
           icon: Calendar,
-          href: '/appointments',
+          href: '/dashboard/patient/appointments',
           color: 'text-green-500',
         },
         {
           label: 'Book Appointment',
           icon: PlusCircle,
-          href: '/appointment',
+          href: '/dashboard/patient/book-appointment',
           color: 'text-blue-500',
         },
         {
           label: 'Medical Records',
           icon: FileText,
-          href: '/records',
+          href: '/dashboard/patient/records',
           color: 'text-purple-500',
         },
         {
           label: 'My Doctors',
           icon: Stethoscope,
-          href: '/my-doctors',
+          href: '/dashboard/patient/my-doctors',
           color: 'text-pink-500',
+        },
+        {
+          label: 'Settings',
+          icon: Settings,
+          href: '/dashboard/patient/settings',
+          color: 'text-gray-500',
         }
       );
     }
@@ -99,26 +105,32 @@ export default function DashboardLayout({
         {
           label: 'My Schedule',
           icon: Clock,
-          href: '/doctor/schedule',
+          href: '/dashboard/doctor/schedule',
           color: 'text-blue-500',
         },
         {
           label: 'Appointments',
           icon: Calendar,
-          href: '/doctor/appointments',
+          href: '/dashboard/doctor/appointments',
           color: 'text-green-500',
         },
         {
           label: 'My Patients',
           icon: Users,
-          href: '/doctor/patients',
+          href: '/dashboard/doctor/patients',
           color: 'text-purple-500',
         },
         {
           label: 'Earnings',
           icon: BarChart3,
-          href: '/doctor/earnings',
+          href: '/dashboard/doctor/earnings',
           color: 'text-emerald-500',
+        },
+        {
+          label: 'Settings',
+          icon: Settings,
+          href: '/dashboard/doctor/settings',
+          color: 'text-gray-500',
         }
       );
     }
@@ -128,37 +140,35 @@ export default function DashboardLayout({
         {
           label: 'Admin Dashboard',
           icon: BarChart3,
-          href: '/admin/dashboard',
+          href: '/dashboard/admin/dashboard',
           color: 'text-red-500',
         },
         {
           label: 'User Management',
           icon: Users,
-          href: '/admin/users',
+          href: '/dashboard/admin/users',
           color: 'text-blue-500',
         },
         {
           label: 'Doctor Management',
           icon: Stethoscope,
-          href: '/admin/doctors',
+          href: '/dashboard/admin/doctors',
           color: 'text-green-500',
         },
         {
           label: 'Appointments',
           icon: Calendar,
-          href: '/admin/appointments',
+          href: '/dashboard/admin/appointments',
           color: 'text-purple-500',
+        },
+        {
+          label: 'Settings',
+          icon: UserCog,
+          href: '/dashboard/admin/settings',
+          color: 'text-gray-500',
         }
       );
     }
-
-    // Settings - সবার জন্য
-    items.push({
-      label: 'Settings',
-      icon: Settings,
-      href: role === 'patient' ? '/settings' : role === 'doctor' ? '/doctor/settings' : '/admin/settings',
-      color: 'text-gray-500',
-    });
 
     return items;
   };
