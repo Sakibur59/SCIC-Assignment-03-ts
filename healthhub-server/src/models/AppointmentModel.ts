@@ -63,6 +63,7 @@ export class AppointmentModel {
     return result;
   }
 
+  // ✅ FIXED: Doctor details সহ Appointment আনা
   static async getAppointmentsWithDetails(patientId?: string | ObjectId, doctorId?: string | ObjectId): Promise<any[]> {
     const collection = db.getCollection<IAppointment>(this.collectionName);
     
@@ -76,6 +77,7 @@ export class AppointmentModel {
 
     const pipeline = [
       { $match: match },
+      // ✅ First get patient from users
       {
         $lookup: {
           from: 'users',
@@ -84,17 +86,62 @@ export class AppointmentModel {
           as: 'patient'
         }
       },
-      { $unwind: '$patient' },
+      { $unwind: { path: '$patient', preserveNullAndEmptyArrays: true } },
+      
+      // ✅ Then get doctor from doctors collection
+      {
+        $lookup: {
+          from: 'doctors',
+          localField: 'doctorId',
+          foreignField: '_id',
+          as: 'doctorInfo'
+        }
+      },
+      { $unwind: { path: '$doctorInfo', preserveNullAndEmptyArrays: true } },
+      
+      // ✅ Then get doctor user details from users
       {
         $lookup: {
           from: 'users',
-          localField: 'doctorId',
+          localField: 'doctorInfo.userId',
           foreignField: '_id',
-          as: 'doctor'
+          as: 'doctorUser'
         }
       },
-      { $unwind: '$doctor' },
-      { $project: { 'patient.password': 0, 'doctor.password': 0 } },
+      { $unwind: { path: '$doctorUser', preserveNullAndEmptyArrays: true } },
+      
+      // ✅ Final projection
+      {
+        $project: {
+          _id: 1,
+          patientId: 1,
+          doctorId: 1,
+          date: 1,
+          time: 1,
+          status: 1,
+          symptoms: 1,
+          notes: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          patient: {
+            _id: '$patient._id',
+            name: '$patient.name',
+            email: '$patient.email',
+            phone: '$patient.phone'
+          },
+          doctor: {
+            _id: '$doctorUser._id',
+            name: '$doctorUser.name',
+            email: '$doctorUser.email',
+            specialization: '$doctorInfo.specialization',
+            address: '$doctorUser.address',
+            phone: '$doctorUser.phone',
+            profilePicture: '$doctorUser.profilePicture',
+            experience: '$doctorInfo.experience',
+            consultationFee: '$doctorInfo.consultationFee'
+          }
+        }
+      },
       { $sort: { date: 1 } }
     ];
 

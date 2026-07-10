@@ -115,3 +115,87 @@ export const cancelAppointment = async (req: Request, res: Response) => {
     });
   }
 };
+export const getAppointment = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    const appointment = await AppointmentModel.findById(id);
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    // Check if user owns this appointment
+    if (
+      appointment.patientId.toString() !== userId &&
+      req.user.role !== "admin"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to view this appointment",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: appointment,
+    });
+  } catch (error: any) {
+    console.error("Get appointment error:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to get appointment",
+    });
+  }
+};
+
+// ✅ Update appointment
+export const updateAppointment = async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+    const { date, time, symptoms, notes, doctorId } = req.body;
+
+    const appointment = await AppointmentModel.findById(id);
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    // Check if user owns this appointment
+    if (
+      appointment.patientId.toString() !== userId &&
+      req.user.role !== "admin"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update this appointment",
+      });
+    }
+
+    const updated = await AppointmentModel.update(id, {
+      date: date ? new Date(date) : appointment.date,
+      time: time || appointment.time,
+      symptoms: symptoms || appointment.symptoms,
+      notes: notes || appointment.notes,
+      doctorId: doctorId || appointment.doctorId,
+      status: "pending", // Reset status on reschedule
+    });
+
+    res.status(200).json({
+      success: true,
+      data: updated,
+    });
+  } catch (error: any) {
+    console.error("Update appointment error:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to update appointment",
+    });
+  }
+};
