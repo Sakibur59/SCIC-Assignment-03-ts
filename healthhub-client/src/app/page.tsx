@@ -4,6 +4,7 @@ import { SearchDoctor } from '@/components/landing/SearchDoctor';
 import { PopularDepartments } from '@/components/landing/PopularDepartments';
 import { TopDoctors } from '@/components/landing/TopDoctors';
 import { Testimonials } from '@/components/landing/Testimonials';
+import { Footer } from '@/components/layout/Footer';
 
 export default function Home() {
   return (
@@ -14,6 +15,7 @@ export default function Home() {
       <PopularDepartments />
       <TopDoctors />
       <Testimonials />
+      <Footer/>
     </main>
   );
 }
