@@ -5,6 +5,7 @@ import {
   cancelAppointment,
   getAppointment,
   updateAppointment,
+  updateAppointmentStatus
 } from '../controllers/appointmentController';
 import { protect } from '../middleware/auth';
 
@@ -14,6 +15,7 @@ router.post('/', protect, createAppointment);
 router.get('/my', protect, getMyAppointments);
 router.get('/:id', protect, getAppointment);
 router.put('/:id', protect, updateAppointment);
+router.put('/:id/status', protect, updateAppointmentStatus);
 router.put('/:id/cancel', protect, cancelAppointment);
 
 export default router;

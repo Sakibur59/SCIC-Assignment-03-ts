@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-
 import { ObjectId } from "mongodb";
+import { db } from "../config/database";
 import { AppointmentModel } from "../models/AppointmentModel";
 
 export const createAppointment = async (req: any, res: Response) => {
@@ -46,6 +46,12 @@ export const getMyAppointments = async (req: any, res: Response) => {
       );
     } else {
       appointments = await AppointmentModel.getAppointmentsWithDetails();
+    }
+
+    // ✅ Log for debugging
+    console.log(`📋 Found ${appointments.length} appointments`);
+    if (appointments.length > 0) {
+      console.log('👨‍⚕️ First appointment doctor:', appointments[0]?.doctor);
     }
 
     res.status(200).json({
@@ -119,40 +125,69 @@ export const getAppointment = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.userId;
-
+    
     const appointment = await AppointmentModel.findById(id);
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: "Appointment not found",
+        message: 'Appointment not found'
       });
     }
 
-    // Check if user owns this appointment
-    if (
-      appointment.patientId.toString() !== userId &&
-      req.user.role !== "admin"
-    ) {
+    // Check authorization
+    if (appointment.patientId.toString() !== userId && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
-        message: "Not authorized to view this appointment",
+        message: 'Not authorized to view this appointment'
       });
+    }
+
+    // ✅ Get doctor details
+    const doctorsCollection = db.getCollection('doctors');
+    const doctor = await doctorsCollection.findOne({ _id: new ObjectId(appointment.doctorId) });
+    
+    let doctorData = {
+      name: 'Doctor',
+      specialization: 'General Medicine',
+      address: '',
+      phone: '',
+      experience: 0,
+      consultationFee: 100,
+      rating: 4.5
+    };
+
+    if (doctor) {
+      const usersCollection = db.getCollection('users');
+      const userData = await usersCollection.findOne({ _id: doctor.userId });
+      
+      doctorData = {
+        name: userData?.name || 'Doctor',
+        specialization: doctor.specialization || 'General Medicine',
+        address: userData?.address || '',
+        phone: userData?.phone || '',
+        experience: doctor.experience || 0,
+        consultationFee: doctor.consultationFee || 100,
+        rating: doctor.rating || 4.5
+      };
     }
 
     res.status(200).json({
       success: true,
-      data: appointment,
+      data: {
+        ...appointment,
+        doctor: doctorData
+      },
     });
   } catch (error: any) {
-    console.error("Get appointment error:", error);
+    console.error('Get appointment error:', error);
     res.status(400).json({
       success: false,
-      message: error.message || "Failed to get appointment",
+      message: error.message || 'Failed to get appointment',
     });
   }
 };
 
-// ✅ Update appointment
+
 export const updateAppointment = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
