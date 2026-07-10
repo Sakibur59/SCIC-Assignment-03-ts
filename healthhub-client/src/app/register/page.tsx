@@ -4,15 +4,18 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { Eye, EyeOff, Heart, ArrowRight, User, Mail, Lock, Calendar, Stethoscope, DollarSign } from 'lucide-react';
+import { Eye, EyeOff, Heart, ArrowRight, User, Mail, Lock, Calendar, Stethoscope, DollarSign, Clock, Plus, X } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
-import Image from 'next/image';
+import toast from 'react-hot-toast';
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function RegisterPage() {
   const router = useRouter();
   const { register } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [availability, setAvailability] = useState<{ day: string; slots: string[] }[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -24,6 +27,60 @@ export default function RegisterPage() {
     education: '',
     consultationFee: '',
   });
+
+  // Availability handlers
+  const addDayAvailability = () => {
+    const addedDays = availability.map(a => a.day);
+    const availableDay = DAYS.find(day => !addedDays.includes(day));
+
+    if (availableDay) {
+      setAvailability([...availability, { day: availableDay, slots: ['09:00', '10:00'] }]);
+    } else {
+      toast.error('All days already added');
+    }
+  };
+
+  const removeDay = (day: string) => {
+    setAvailability(availability.filter(a => a.day !== day));
+  };
+
+  const addSlot = (day: string) => {
+    setAvailability(availability.map(a => {
+      if (a.day === day) {
+        return { ...a, slots: [...a.slots, ''] };
+      }
+      return a;
+    }));
+  };
+
+  const removeSlot = (day: string, slotIndex: number) => {
+    setAvailability(availability.map(a => {
+      if (a.day === day) {
+        const slots = a.slots.filter((_, i) => i !== slotIndex);
+        return { ...a, slots };
+      }
+      return a;
+    }));
+  };
+
+  const updateSlot = (day: string, slotIndex: number, value: string) => {
+    setAvailability(availability.map(a => {
+      if (a.day === day) {
+        const slots = a.slots.map((s, i) => i === slotIndex ? value : s);
+        return { ...a, slots };
+      }
+      return a;
+    }));
+  };
+
+  const toggleDay = (day: string) => {
+    const exists = availability.find(a => a.day === day);
+    if (exists) {
+      setAvailability(availability.filter(a => a.day !== day));
+    } else {
+      setAvailability([...availability, { day, slots: ['09:00', '10:00'] }]);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,10 +96,19 @@ export default function RegisterPage() {
       if (formData.role === 'patient') {
         data.dateOfBirth = formData.dateOfBirth;
       } else if (formData.role === 'doctor') {
+        // ✅ Clean availability data
+        const cleanAvailability = availability
+          .map(a => ({
+            ...a,
+            slots: a.slots.filter((s: string) => s.trim() !== '')
+          }))
+          .filter(a => a.slots.length > 0);
+
         data.specialization = formData.specialization;
         data.experience = parseInt(formData.experience) || 0;
         data.education = formData.education ? [formData.education] : ['MBBS'];
         data.consultationFee = parseInt(formData.consultationFee) || 500;
+        data.availability = cleanAvailability;
       }
 
       await register(data);
@@ -144,23 +210,29 @@ export default function RegisterPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, role: 'patient' })}
-                    className={`px-4 py-3 rounded-xl border-2 transition-all ${
-                      formData.role === 'patient'
+                    onClick={() => {
+                      setFormData({ ...formData, role: 'patient' });
+                      setAvailability([]);
+                    }}
+                    className={`px-4 py-3 rounded-xl border-2 transition-all ${formData.role === 'patient'
                         ? 'border-blue-500 bg-blue-50 text-blue-600'
                         : 'border-gray-300 hover:border-gray-400 text-gray-600'
-                    }`}
+                      }`}
                   >
                     🏥 Patient
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, role: 'doctor' })}
-                    className={`px-4 py-3 rounded-xl border-2 transition-all ${
-                      formData.role === 'doctor'
+                    onClick={() => {
+                      setFormData({ ...formData, role: 'doctor' });
+                      if (availability.length === 0) {
+                        setAvailability([{ day: 'Monday', slots: ['09:00', '10:00'] }]);
+                      }
+                    }}
+                    className={`px-4 py-3 rounded-xl border-2 transition-all ${formData.role === 'doctor'
                         ? 'border-blue-500 bg-blue-50 text-blue-600'
                         : 'border-gray-300 hover:border-gray-400 text-gray-600'
-                    }`}
+                      }`}
                   >
                     👨‍⚕️ Doctor
                   </button>
@@ -186,69 +258,159 @@ export default function RegisterPage() {
               )}
 
               {formData.role === 'doctor' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Specialization
-                    </label>
-                    <div className="relative">
-                      <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="e.g., Cardiology"
-                        value={formData.specialization}
-                        onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        required={formData.role === 'doctor'}
-                      />
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Specialization
+                      </label>
+                      <div className="relative">
+                        <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="e.g., Cardiology"
+                          value={formData.specialization}
+                          onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Years of Experience
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="e.g., 5"
-                      value={formData.experience}
-                      onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      required={formData.role === 'doctor'}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Education
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g., MBBS, MD"
-                      value={formData.education}
-                      onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      required={formData.role === 'doctor'}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Consultation Fee (BDT)
-                    </label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Years of Experience
+                      </label>
                       <input
                         type="number"
-                        placeholder="e.g., 500"
-                        value={formData.consultationFee}
-                        onChange={(e) => setFormData({ ...formData, consultationFee: e.target.value })}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        required={formData.role === 'doctor'}
+                        placeholder="e.g., 5"
+                        value={formData.experience}
+                        onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Education
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g., MBBS, MD"
+                        value={formData.education}
+                        onChange={(e) => setFormData({ ...formData, education: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Consultation Fee (BDT)
+                      </label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="number"
+                          placeholder="e.g., 500"
+                          value={formData.consultationFee}
+                          onChange={(e) => setFormData({ ...formData, consultationFee: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                          required
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
+
+                  {/* ✅ Availability Section */}
+                  <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="text-sm font-medium text-gray-700">
+                        <Clock className="inline h-4 w-4 mr-1" />
+                        Weekly Availability
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addDayAvailability}
+                        className="text-blue-500 hover:text-blue-600 flex items-center gap-1 text-sm"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add Day
+                      </button>
+                    </div>
+
+                    {/* Day Toggle Buttons */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {DAYS.map((day) => {
+                        const isAdded = availability.some(a => a.day === day);
+                        return (
+                          <button
+                            type="button"
+                            key={day}
+                            onClick={() => toggleDay(day)}
+                            className={`px-2 py-1 rounded-full text-xs font-medium transition-all ${isAdded
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                              }`}
+                          >
+                            {day.slice(0, 3)}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Availability List */}
+                    {availability.length === 0 ? (
+                      <p className="text-xs text-gray-400 text-center py-2">
+                        No availability set. Click on a day above to add.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {availability.map((dayData) => (
+                          <div key={dayData.day} className="bg-white rounded-lg p-2 border border-gray-200">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-xs font-medium text-gray-700">{dayData.day}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeDay(dayData.day)}
+                                className="text-red-400 hover:text-red-600"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {dayData.slots.map((slot, index) => (
+                                <div key={index} className="flex items-center gap-1">
+                                  <input
+                                    type="time"
+                                    value={slot}
+                                    onChange={(e) => updateSlot(dayData.day, index, e.target.value)}
+                                    className="px-2 py-0.5 border border-gray-200 rounded text-xs w-20 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeSlot(dayData.day, index)}
+                                    className="text-red-400 hover:text-red-600"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => addSlot(dayData.day)}
+                                className="px-2 py-0.5 border border-dashed border-gray-300 rounded text-xs text-gray-400 hover:text-blue-500 hover:border-blue-500"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
 
               <button
@@ -284,7 +446,7 @@ export default function RegisterPage() {
               <div className="absolute top-10 left-10 w-40 h-40 bg-white rounded-full blur-2xl" />
               <div className="absolute bottom-10 right-10 w-60 h-60 bg-white rounded-full blur-2xl" />
             </div>
-            
+
             <div className="relative z-10 text-center">
               <div className="mb-8">
                 <Heart className="h-20 w-20 text-white/80 mx-auto" fill="white" />

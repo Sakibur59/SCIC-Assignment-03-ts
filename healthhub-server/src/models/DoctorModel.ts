@@ -12,6 +12,7 @@ export class DoctorModel {
     const doctor: IDoctor = {
       ...doctorData,
       rating: 0,
+      availability: doctorData.availability || [],  
       createdAt: now,
       updatedAt: now,
     } as IDoctor;

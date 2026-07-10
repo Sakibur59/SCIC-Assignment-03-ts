@@ -23,7 +23,8 @@ export const register = async (req: Request, res: Response) => {
       specialization,
       experience,
       education,
-      consultationFee
+      consultationFee,
+      availability 
     } = req.body as RegisterRequest;
 
     const existingUser = await UserModel.findByEmail(email);
@@ -53,7 +54,7 @@ export const register = async (req: Request, res: Response) => {
         experience: experience || 0,
         education: education || ['MBBS'],
         consultationFee: consultationFee || 500,
-        availability: [],
+        availability: availability || [], 
       });
     }
 
@@ -133,10 +134,19 @@ export const getMe = async (req: any, res: Response) => {
         message: 'User not found'
       });
     }
+    let roleData = null;
+    if (user.role === 'patient') {
+      roleData = await PatientModel.findByUserId(userId);
+    } else if (user.role === 'doctor') {
+      roleData = await DoctorModel.findByUserId(userId);
+    }
 
     res.status(200).json({
       success: true,
-      data: user,
+      data: {
+        ...user,
+        roleData,
+      },
     });
   } catch (error: any) {
     console.error('Get me error:', error);
