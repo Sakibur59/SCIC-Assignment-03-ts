@@ -109,7 +109,8 @@ export default function AppointmentPage() {
         toast.success('Appointment booked successfully!');
       }
 
-      router.push('/appointments');
+      // ✅ Dashboard এর Patient Appointments পেজে Redirect
+      router.push('/dashboard/patient/appointments');
     } catch (error: any) {
       toast.error(error.message || 'Failed to book appointment');
     } finally {
@@ -224,6 +225,7 @@ export default function AppointmentPage() {
                             value={formData.date}
                             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                             className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            min={new Date().toISOString().split('T')[0]}
                           />
                         </div>
                       </div>

@@ -36,28 +36,40 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth(); // ✅ loading state নাও
   const router = useRouter();
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // ✅ Auth loading complete হওয়া পর্যন্ত wait করো
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, router]);
+
+  // ✅ Loading state দেখাও
+  if (authLoading) {
+    return (
+      <>
+        <Navbar />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+        </div>
+      </>
+    );
+  }
 
   if (!isAuthenticated || !user) {
     return null;
   }
 
-  // ✅ Role-based menu items (Dashboard এর ভিতরে)
+  // Role-based menu items
   const getMenuItems = (): MenuItem[] => {
     const role = user?.role;
     const items: MenuItem[] = [];
 
-    // Dashboard Home
     items.push({
       label: 'Dashboard',
       icon: LayoutDashboard,

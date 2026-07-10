@@ -118,7 +118,7 @@ export const SearchDoctor = () => {
           {/* Popular Searches */}
           <div className="mt-4 flex flex-wrap gap-2 justify-center">
             <span className="text-sm text-gray-500 font-medium">Popular:</span>
-            {['Cardiologist', 'Dentist', 'Orthopedic', 'Pediatrician', 'Dermatologist'].map((item) => (
+            {['Cardiology', 'Dentist', 'Orthopedic', 'Pediatrician', 'Dermatologist'].map((item) => (
               <button
                 key={item}
                 type="button"
