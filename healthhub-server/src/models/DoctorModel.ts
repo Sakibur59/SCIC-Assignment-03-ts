@@ -99,14 +99,9 @@ export class DoctorModel {
         },
       },
       { $unwind: "$user" },
-      ...(filter.$or || filter.address
-        ? [
-            {
-              $match: filter,
-            },
-          ]
-        : []),
+      { $match: filter },
       { $project: { "user.password": 0 } },
+      { $sort: { rating: -1 } },
     ];
 
     return await collection.aggregate(pipeline).toArray();
