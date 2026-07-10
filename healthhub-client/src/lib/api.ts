@@ -106,6 +106,17 @@ class ApiService {
     return this.request("/appointments/my");
   }
 
+  async getAppointment(id: string): Promise<any> {
+    return this.request(`/appointments/${id}`);
+  }
+
+  async updateAppointment(id: string, data: any): Promise<any> {
+    return this.request(`/appointments/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
   async updateAppointmentStatus(
     id: string,
     status: string,
