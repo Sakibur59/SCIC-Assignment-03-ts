@@ -1,6 +1,7 @@
-import { Request, Response } from 'express';
-import { AppointmentModel } from '../models/AppointmentModel';
-import { ObjectId } from 'mongodb';
+import { Request, Response } from "express";
+
+import { ObjectId } from "mongodb";
+import { AppointmentModel } from "../models/AppointmentModel";
 
 export const createAppointment = async (req: any, res: Response) => {
   try {
@@ -21,10 +22,10 @@ export const createAppointment = async (req: any, res: Response) => {
       data: appointment,
     });
   } catch (error: any) {
-    console.error('Create appointment error:', error);
+    console.error("Create appointment error:", error);
     res.status(400).json({
       success: false,
-      message: error.message || 'Failed to create appointment',
+      message: error.message || "Failed to create appointment",
     });
   }
 };
@@ -35,11 +36,14 @@ export const getMyAppointments = async (req: any, res: Response) => {
     const user = req.user;
 
     let appointments;
-    
-    if (user.role === 'patient') {
+
+    if (user.role === "patient") {
       appointments = await AppointmentModel.getAppointmentsWithDetails(userId);
-    } else if (user.role === 'doctor') {
-      appointments = await AppointmentModel.getAppointmentsWithDetails(undefined, userId);
+    } else if (user.role === "doctor") {
+      appointments = await AppointmentModel.getAppointmentsWithDetails(
+        undefined,
+        userId,
+      );
     } else {
       appointments = await AppointmentModel.getAppointmentsWithDetails();
     }
@@ -50,10 +54,10 @@ export const getMyAppointments = async (req: any, res: Response) => {
       data: appointments,
     });
   } catch (error: any) {
-    console.error('Get appointments error:', error);
+    console.error("Get appointments error:", error);
     res.status(400).json({
       success: false,
-      message: error.message || 'Failed to get appointments',
+      message: error.message || "Failed to get appointments",
     });
   }
 };
@@ -68,7 +72,7 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: 'Appointment not found'
+        message: "Appointment not found",
       });
     }
 
@@ -77,10 +81,10 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
       data: appointment,
     });
   } catch (error: any) {
-    console.error('Update appointment error:', error);
+    console.error("Update appointment error:", error);
     res.status(400).json({
       success: false,
-      message: error.message || 'Failed to update appointment',
+      message: error.message || "Failed to update appointment",
     });
   }
 };
@@ -88,12 +92,14 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
 export const cancelAppointment = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const appointment = await AppointmentModel.update(id, { status: 'cancelled' });
+    const appointment = await AppointmentModel.update(id, {
+      status: "cancelled",
+    });
 
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: 'Appointment not found'
+        message: "Appointment not found",
       });
     }
 
@@ -102,10 +108,10 @@ export const cancelAppointment = async (req: Request, res: Response) => {
       data: appointment,
     });
   } catch (error: any) {
-    console.error('Cancel appointment error:', error);
+    console.error("Cancel appointment error:", error);
     res.status(400).json({
       success: false,
-      message: error.message || 'Failed to cancel appointment',
+      message: error.message || "Failed to cancel appointment",
     });
   }
 };

@@ -1,34 +1,42 @@
-import { Request, Response } from "express";
-import { DoctorModel } from "../models/DoctorModel";
-import { UserModel } from "../models/UserModel";
+import { Request, Response } from 'express';
+import { db } from '../config/database';
+import { ObjectId } from 'mongodb';
 
+// ✅ Get all doctors
 export const getDoctors = async (req: Request, res: Response) => {
   try {
-    const doctors = await DoctorModel.getAllDoctorsWithUsers();
-
+    console.log('📋 Fetching all doctors...');
+    
+    const collection = db.getCollection('doctors');
+    const doctors = await collection.find({}).toArray();
+    
+    console.log(`✅ Found ${doctors.length} doctors`);
+    
     res.status(200).json({
       success: true,
       count: doctors.length,
       data: doctors,
     });
   } catch (error: any) {
-    console.error("Get doctors error:", error);
+    console.error('❌ Error:', error);
     res.status(400).json({
       success: false,
-      message: error.message || "Failed to get doctors",
+      message: error.message || 'Failed to get doctors',
     });
   }
 };
 
+// ✅ Get single doctor
 export const getDoctor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const doctor = await DoctorModel.getDoctorWithUser(id);
-
+    const collection = db.getCollection('doctors');
+    const doctor = await collection.findOne({ _id: new ObjectId(id) });
+    
     if (!doctor) {
       return res.status(404).json({
         success: false,
-        message: "Doctor not found",
+        message: 'Doctor not found'
       });
     }
 
@@ -37,103 +45,96 @@ export const getDoctor = async (req: Request, res: Response) => {
       data: doctor,
     });
   } catch (error: any) {
-    console.error("Get doctor error:", error);
+    console.error('❌ Error:', error);
     res.status(400).json({
       success: false,
-      message: error.message || "Failed to get doctor",
+      message: error.message || 'Failed to get doctor',
     });
   }
 };
 
-export const getDoctorsBySpecialization = async (
-  req: Request,
-  res: Response,
-) => {
+// ✅ Get doctors by specialization
+export const getDoctorsBySpecialization = async (req: Request, res: Response) => {
   try {
     const { specialization } = req.params;
-    const doctors = await DoctorModel.findBySpecialization(specialization);
-
-    const doctorsWithUsers = await Promise.all(
-      doctors.map(async (doctor) => {
-        const user = await UserModel.findById(doctor.userId.toString());
-        return { ...doctor, user };
-      }),
-    );
-
+    const collection = db.getCollection('doctors');
+    const doctors = await collection
+      .find({ specialization: { $regex: specialization, $options: 'i' } })
+      .toArray();
+    
     res.status(200).json({
       success: true,
-      count: doctorsWithUsers.length,
-      data: doctorsWithUsers,
+      count: doctors.length,
+      data: doctors,
     });
   } catch (error: any) {
-    console.error("Get doctors by specialization error:", error);
+    console.error('❌ Error:', error);
     res.status(400).json({
       success: false,
-      message: error.message || "Failed to get doctors",
+      message: error.message || 'Failed to get doctors',
     });
   }
 };
 
+// ✅ Search doctors
+export const searchDoctors = async (req: Request, res: Response) => {
+  try {
+    const { q } = req.query;
+    const collection = db.getCollection('doctors');
+    
+    let filter: any = {};
+    if (q) {
+      filter.$or = [
+        { name: { $regex: q, $options: 'i' } },
+        { specialization: { $regex: q, $options: 'i' } }
+      ];
+    }
+
+    const doctors = await collection.find(filter).toArray();
+    
+    res.status(200).json({
+      success: true,
+      count: doctors.length,
+      data: doctors,
+    });
+  } catch (error: any) {
+    console.error('❌ Error:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to search doctors',
+    });
+  }
+};
+
+// ✅ Update doctor
 export const updateDoctor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+    const collection = db.getCollection('doctors');
+    
+    const result = await collection.findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: { ...updateData, updatedAt: new Date() } },
+      { returnDocument: 'after' }
+    );
 
-    const doctor = await DoctorModel.update(id, updateData);
-
-    if (!doctor) {
+    if (!result) {
       return res.status(404).json({
         success: false,
-        message: "Doctor profile not found",
+        message: 'Doctor not found'
       });
     }
 
     res.status(200).json({
       success: true,
-      data: doctor,
+      data: result,
     });
   } catch (error: any) {
-    console.error("Update doctor error:", error);
+    console.error('❌ Error:', error);
     res.status(400).json({
       success: false,
-      message: error.message || "Failed to update doctor",
-    });
-  }
-};
-
-export const searchDoctors = async (req: Request, res: Response) => {
-  try {
-    const { q, specialization, location } = req.query;
-
-    let filter: any = {};
-
-    if (q) {
-      filter.$or = [
-        { "user.name": { $regex: q, $options: "i" } },
-        { specialization: { $regex: q, $options: "i" } },
-      ];
-    }
-
-    if (specialization) {
-      filter.specialization = { $regex: specialization, $options: "i" };
-    }
-
-    if (location) {
-      filter["user.address"] = { $regex: location, $options: "i" };
-    }
-
-    const doctors = await DoctorModel.searchDoctors(filter);
-
-    res.status(200).json({
-      success: true,
-      count: doctors.length,
-      data: doctors,
-    });
-  } catch (error: any) {
-    console.error("Search doctors error:", error);
-    res.status(400).json({
-      success: false,
-      message: error.message || "Failed to search doctors",
+      message: error.message || 'Failed to update doctor',
     });
   }
 };
