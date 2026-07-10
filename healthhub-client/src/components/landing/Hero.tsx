@@ -46,7 +46,7 @@ export const Hero = () => {
 
             {/* CTA Buttons */}
             <div className="flex flex-wrap gap-4">
-              <Link href="/appointment">
+              <Link href="/dashboard/patient/book-appointment">
                 <button className="bg-primary-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-primary-600 transition-all shadow-lg hover:shadow-xl flex items-center gap-2">
                   Book Appointment
                   <ArrowRight className="h-5 w-5" />

@@ -6,7 +6,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { Calendar, Clock, User, Stethoscope, MapPin, DollarSign, Send, AlertCircle, Star } from 'lucide-react';
+import { Calendar, Clock, MapPin, DollarSign, Send, AlertCircle, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AppointmentPage() {
@@ -14,7 +14,6 @@ export default function AppointmentPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
 
-  // Get params
   const doctorId = searchParams.get('doctor');
   const reschedule = searchParams.get('reschedule') === 'true';
   const appointmentId = searchParams.get('appointmentId');
@@ -23,7 +22,7 @@ export default function AppointmentPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    doctorId: doctorId || '',
+    doctorId: '',
     date: '',
     time: '',
     symptoms: '',
@@ -32,23 +31,33 @@ export default function AppointmentPage() {
 
   const isPatient = user?.role === 'patient';
 
-  // ✅ Load doctor
-  const loadDoctor = async (id: string) => {
+  // ✅ Load doctor data
+  const loadDoctorData = async (id: string) => {
     try {
+      console.log('🔄 Loading doctor:', id);
       const response = await api.getDoctor(id);
+      console.log('✅ Doctor data:', response.data);
       setDoctor(response.data);
+      return response.data;
     } catch (error) {
-      console.error('Error loading doctor:', error);
+      console.error('❌ Error loading doctor:', error);
       toast.error('Doctor not found');
+      return null;
     }
   };
 
   // ✅ Load appointment for reschedule
-  const loadAppointmentData = async (id: string) => {
+  const loadAppointmentForReschedule = async (id: string) => {
     try {
+      console.log('🔄 Loading appointment:', id);
+      setLoading(true);
+      
       const response = await api.getAppointment(id);
       const apt = response.data;
+      console.log('✅ Appointment data:', apt);
+      
       if (apt) {
+        // ✅ Set form data
         setFormData({
           doctorId: apt.doctorId,
           date: apt.date ? new Date(apt.date).toISOString().split('T')[0] : '',
@@ -56,32 +65,37 @@ export default function AppointmentPage() {
           symptoms: apt.symptoms || '',
           notes: apt.notes || '',
         });
-        // Load doctor info
-        await loadDoctor(apt.doctorId);
-        setLoading(false);
+
+        // ✅ Load doctor using doctorId from appointment
+        if (apt.doctorId) {
+          const doctorData = await loadDoctorData(apt.doctorId);
+          if (doctorData) {
+            console.log('✅ Doctor loaded for reschedule:', doctorData);
+          }
+        }
       }
+      setLoading(false);
     } catch (error) {
-      console.error('Error loading appointment:', error);
-      toast.error('Failed to load appointment data');
+      console.error('❌ Error loading appointment:', error);
+      toast.error('Failed to load appointment');
       setLoading(false);
     }
   };
 
   useEffect(() => {
     if (reschedule && appointmentId) {
-      // Reschedule mode - load existing appointment
-      loadAppointmentData(appointmentId);
+      // ✅ Reschedule mode
+      loadAppointmentForReschedule(appointmentId);
     } else if (doctorId) {
-      // New booking mode
+      // ✅ New booking mode
       setLoading(true);
-      loadDoctor(doctorId).finally(() => setLoading(false));
-      setFormData(prev => ({ ...prev, doctorId: doctorId }));
+      loadDoctorData(doctorId).finally(() => setLoading(false));
+      setFormData(prev => ({ ...prev, doctorId: doctorId || '' }));
     } else {
       setLoading(false);
     }
   }, [doctorId, reschedule, appointmentId]);
 
-  // ✅ Handle Submit - Create or Update
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -100,16 +114,13 @@ export default function AppointmentPage() {
       setSubmitting(true);
 
       if (reschedule && appointmentId) {
-        // ✅ Update existing appointment (reschedule)
         await api.updateAppointment(appointmentId, formData);
         toast.success('Appointment rescheduled successfully!');
       } else {
-        // ✅ Create new appointment
         await api.createAppointment(formData);
         toast.success('Appointment booked successfully!');
       }
 
-      // ✅ Dashboard এর Patient Appointments পেজে Redirect
       router.push('/dashboard/patient/appointments');
     } catch (error: any) {
       toast.error(error.message || 'Failed to book appointment');
@@ -130,6 +141,7 @@ export default function AppointmentPage() {
     );
   }
 
+  // ✅ Check if doctor exists (for new booking) or reschedule mode
   if (!doctor && !reschedule) {
     return (
       <>
@@ -145,6 +157,14 @@ export default function AppointmentPage() {
     );
   }
 
+  // ✅ Safe data access
+  const doctorName = doctor?.name || doctor?.roleData?.name || 'Doctor';
+  const doctorSpecialization = doctor?.roleData?.specialization || doctor?.specialization || 'General Medicine';
+  const doctorRating = doctor?.roleData?.rating || doctor?.rating || 4.5;
+  const doctorExperience = doctor?.roleData?.experience || doctor?.experience || 0;
+  const doctorFee = doctor?.roleData?.consultationFee || doctor?.consultationFee || 100;
+  const doctorAddress = doctor?.address || 'Location not specified';
+
   return (
     <>
       <Navbar />
@@ -159,26 +179,26 @@ export default function AppointmentPage() {
             <div className="md:col-span-1">
               <div className="bg-white rounded-xl shadow-sm p-6 sticky top-24">
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold mx-auto">
-                  {doctor?.name?.charAt(0) || 'D'}
+                  {doctorName.charAt(0) || 'D'}
                 </div>
-                <h3 className="text-center font-semibold text-gray-800 mt-4">{doctor?.name || 'Doctor'}</h3>
-                <p className="text-center text-blue-500 text-sm">{doctor?.specialization || 'General Medicine'}</p>
+                <h3 className="text-center font-semibold text-gray-800 mt-4">{doctorName}</h3>
+                <p className="text-center text-blue-500 text-sm">{doctorSpecialization}</p>
                 <div className="mt-4 space-y-2 text-sm text-gray-600">
                   <div className="flex items-center gap-2">
                     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span>{doctor?.rating || 4.5} rating</span>
+                    <span>{doctorRating} rating</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4" />
-                    <span>{doctor?.experience || 0} years experience</span>
+                    <span>{doctorExperience} years experience</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
-                    <span>{doctor?.address || 'Location not specified'}</span>
+                    <span>{doctorAddress}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4" />
-                    <span>${doctor?.consultationFee || 100} consultation fee</span>
+                    <span>${doctorFee} consultation fee</span>
                   </div>
                 </div>
               </div>

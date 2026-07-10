@@ -113,7 +113,7 @@ export const TopDoctors = () => {
                     <span className="text-sm text-gray-500">Consultation Fee</span>
                     <p className="font-bold text-gray-800">${doctor.fee}</p>
                   </div>
-                  <Link href={`/appointment?doctor=${doctor.id}`}>
+                  <Link href={`/dashboard/patient/book-appointment`}>
                     <button className="bg-primary-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-600 transition-colors">
                       Book Now
                     </button>
