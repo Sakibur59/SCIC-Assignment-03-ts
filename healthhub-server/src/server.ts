@@ -8,11 +8,14 @@ import { db } from './config/database';
 import authRoutes from './routes/authRoutes';
 import doctorRoutes from './routes/doctorRoutes';
 import appointmentRoutes from './routes/appointmentRoutes';
+import paymentRoutes from './routes/paymentRoutes';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
+
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 // Middleware
 app.use(express.json());
@@ -22,10 +25,12 @@ app.use(cookieParser());
 // CORS
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: process.env.CLIENT_URL ,
     credentials: true,
   })
 );
+
+
 
 // Logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -52,7 +57,7 @@ app.get('/', (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);
-
+app.use('/api/payments', paymentRoutes);
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).json({

@@ -76,54 +76,59 @@ export class AppointmentModel {
     return result;
   }
 
- static async getAppointmentsWithDetails(patientId?: string | ObjectId, doctorId?: string | ObjectId): Promise<any[]> {
+  static async getAppointmentsWithDetails(
+    patientId?: string | ObjectId,
+    doctorId?: string | ObjectId,
+  ): Promise<any[]> {
     const collection = db.getCollection<IAppointment>(this.collectionName);
-    
+
     const match: any = {};
     if (patientId) {
-      match.patientId = typeof patientId === 'string' ? new ObjectId(patientId) : patientId;
+      match.patientId =
+        typeof patientId === "string" ? new ObjectId(patientId) : patientId;
     }
     if (doctorId) {
-      match.doctorId = typeof doctorId === 'string' ? new ObjectId(doctorId) : doctorId;
+      match.doctorId =
+        typeof doctorId === "string" ? new ObjectId(doctorId) : doctorId;
     }
 
     const pipeline = [
       // Step 1: Match appointments
       { $match: match },
-      
+
       // Step 2: Get patient info from users
       {
         $lookup: {
-          from: 'users',
-          localField: 'patientId',
-          foreignField: '_id',
-          as: 'patientData'
-        }
+          from: "users",
+          localField: "patientId",
+          foreignField: "_id",
+          as: "patientData",
+        },
       },
-      { $unwind: { path: '$patientData', preserveNullAndEmptyArrays: true } },
-      
+      { $unwind: { path: "$patientData", preserveNullAndEmptyArrays: true } },
+
       // Step 3: Get doctor info from doctors collection
       {
         $lookup: {
-          from: 'doctors',
-          localField: 'doctorId',
-          foreignField: '_id',
-          as: 'doctorInfo'
-        }
+          from: "doctors",
+          localField: "doctorId",
+          foreignField: "_id",
+          as: "doctorInfo",
+        },
       },
-      { $unwind: { path: '$doctorInfo', preserveNullAndEmptyArrays: true } },
-      
+      { $unwind: { path: "$doctorInfo", preserveNullAndEmptyArrays: true } },
+
       // Step 4: Get doctor user details from users (using doctorInfo.userId)
       {
         $lookup: {
-          from: 'users',
-          localField: 'doctorInfo.userId',
-          foreignField: '_id',
-          as: 'doctorUser'
-        }
+          from: "users",
+          localField: "doctorInfo.userId",
+          foreignField: "_id",
+          as: "doctorUser",
+        },
       },
-      { $unwind: { path: '$doctorUser', preserveNullAndEmptyArrays: true } },
-      
+      { $unwind: { path: "$doctorUser", preserveNullAndEmptyArrays: true } },
+
       // Step 5: Final projection with proper doctor details
       {
         $project: {
@@ -138,36 +143,39 @@ export class AppointmentModel {
           createdAt: 1,
           updatedAt: 1,
           patient: {
-            _id: '$patientData._id',
-            name: '$patientData.name',
-            email: '$patientData.email',
-            phone: '$patientData.phone'
+            _id: "$patientData._id",
+            name: "$patientData.name",
+            email: "$patientData.email",
+            phone: "$patientData.phone",
+            address: { $ifNull: ["$patientData.address", ""] },
+            profilePicture: "$patientData.profilePicture",
           },
           doctor: {
-            _id: '$doctorUser._id',
-            name: { $ifNull: ['$doctorUser.name', 'Doctor'] },
-            email: '$doctorUser.email',
-            specialization: { $ifNull: ['$doctorInfo.specialization', 'General Medicine'] },
-            address: { $ifNull: ['$doctorUser.address', ''] },
-            phone: { $ifNull: ['$doctorUser.phone', ''] },
-            profilePicture: '$doctorUser.profilePicture',
-            experience: { $ifNull: ['$doctorInfo.experience', 0] },
-            consultationFee: { $ifNull: ['$doctorInfo.consultationFee', 100] },
-            rating: { $ifNull: ['$doctorInfo.rating', 4.5] }
-          }
-        }
+            _id: "$doctorUser._id",
+            name: { $ifNull: ["$doctorUser.name", "Doctor"] },
+            email: "$doctorUser.email",
+            specialization: {
+              $ifNull: ["$doctorInfo.specialization", "General Medicine"],
+            },
+            address: { $ifNull: ["$doctorUser.address", ""] },
+            phone: { $ifNull: ["$doctorUser.phone", ""] },
+            profilePicture: "$doctorUser.profilePicture",
+            experience: { $ifNull: ["$doctorInfo.experience", 0] },
+            consultationFee: { $ifNull: ["$doctorInfo.consultationFee", 100] },
+            rating: { $ifNull: ["$doctorInfo.rating", 4.5] },
+          },
+        },
       },
-      { $sort: { date: -1 } }
+      { $sort: { date: -1 } },
     ];
 
     const result = await collection.aggregate(pipeline).toArray();
     console.log(`📊 Found ${result.length} appointments with doctor details`);
-    
-   
+
     if (result.length > 0) {
-      console.log('👨‍⚕️ First doctor name:', result[0]?.doctor?.name);
+      console.log("👨‍⚕️ First doctor name:", result[0]?.doctor?.name);
     }
-    
+
     return result;
   }
 }
