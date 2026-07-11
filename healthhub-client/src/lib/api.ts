@@ -87,8 +87,8 @@ class ApiService {
   }
 
   async getDoctorByUserId(userId: string): Promise<ApiResponse<Doctor>> {
-  return this.request(`/doctors/user/${userId}`);
-}
+    return this.request(`/doctors/user/${userId}`);
+  }
 
   async getDoctorsBySpecialization(
     specialization: string,
@@ -139,6 +139,12 @@ class ApiService {
   async cancelAppointment(id: string): Promise<ApiResponse<Appointment>> {
     return this.request(`/appointments/${id}/cancel`, {
       method: "PUT",
+    });
+  }
+  async updateProfile(data: any): Promise<ApiResponse<User>> {
+    return this.request("/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
     });
   }
 }

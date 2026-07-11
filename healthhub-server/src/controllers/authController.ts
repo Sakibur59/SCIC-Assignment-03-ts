@@ -156,3 +156,82 @@ export const getMe = async (req: any, res: Response) => {
     });
   }
 };
+
+export const updateProfile = async (req: any, res: Response) => {
+  try {
+    const userId = req.userId;
+    const { 
+      name, 
+      phone, 
+      address,
+      dateOfBirth,
+      bloodGroup,
+      allergies,
+      medicalHistory
+    } = req.body;
+
+    // ✅ Update user basic info
+    const userUpdateData: any = {
+      name: name || req.user.name,
+      phone: phone || req.user.phone,
+      address: address || req.user.address,
+      updatedAt: new Date()
+    };
+
+    const updatedUser = await UserModel.update(userId, userUpdateData);
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // ✅ Update patient profile (if role is patient)
+    if (req.user.role === 'patient') {
+      const patientUpdateData: any = {
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+        bloodGroup: bloodGroup || undefined,
+        allergies: allergies || [],
+        medicalHistory: medicalHistory || [],
+        updatedAt: new Date()
+      };
+
+      // Remove undefined fields
+      Object.keys(patientUpdateData).forEach(key => {
+        if (patientUpdateData[key] === undefined) {
+          delete patientUpdateData[key];
+        }
+      });
+
+      const PatientModel = require('../models/PatientModel').PatientModel;
+      await PatientModel.update(userId, patientUpdateData);
+    }
+
+    // ✅ Get updated user with role data
+    const user = await UserModel.findById(userId);
+    let roleData = null;
+    if (req.user.role === 'patient') {
+      const PatientModel = require('../models/PatientModel').PatientModel;
+      roleData = await PatientModel.findByUserId(userId);
+    } else if (req.user.role === 'doctor') {
+      const DoctorModel = require('../models/DoctorModel').DoctorModel;
+      roleData = await DoctorModel.findByUserId(userId);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...user,
+        roleData
+      },
+      message: 'Profile updated successfully'
+    });
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to update profile',
+    });
+  }
+};
