@@ -28,23 +28,28 @@ export default function BookAppointmentPage() {
     notes: '',
   });
 
-  // Get available time slots based on selected date
+  // ✅ Get available time slots based on selected date
   const getAvailableSlots = () => {
     if (!selectedDoctor || !formData.date) return [];
 
     const dayOfWeek = new Date(formData.date).toLocaleString('en-US', { weekday: 'long' });
     const availability = selectedDoctor.roleData?.availability || [];
 
+    // ✅ If doctor has custom availability, use that
     if (availability.length > 0) {
       const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
       if (dayAvailability && dayAvailability.slots.length > 0) {
         return dayAvailability.slots;
       }
+      // ✅ If doctor has availability but no slots for this day, return empty
+      return [];
     }
 
+    // ✅ If doctor has NO availability set, show default slots
     return getDefaultSlots(dayOfWeek);
   };
 
+  // ✅ Default slots (only for doctors with NO availability set)
   const getDefaultSlots = (day: string) => {
     const defaultSlots: { [key: string]: string[] } = {
       'Monday': ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'],
@@ -59,6 +64,27 @@ export default function BookAppointmentPage() {
   };
 
   const availableSlots = getAvailableSlots();
+
+  // ✅ Check if doctor has custom availability
+  const hasCustomAvailability = () => {
+    return selectedDoctor?.roleData?.availability &&
+      selectedDoctor.roleData.availability.length > 0;
+  };
+
+  // ✅ Check if selected date is available for this doctor
+  const isDateAvailable = () => {
+    if (!selectedDoctor || !formData.date) return false;
+    
+    const dayOfWeek = new Date(formData.date).toLocaleString('en-US', { weekday: 'long' });
+    const availability = selectedDoctor.roleData?.availability || [];
+
+    // If doctor has no availability set, all days are available
+    if (availability.length === 0) return true;
+
+    // If doctor has availability, check if day exists
+    const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
+    return dayAvailability !== undefined;
+  };
 
   useEffect(() => {
     loadDoctors();
@@ -84,7 +110,6 @@ export default function BookAppointmentPage() {
     }
   };
 
-  // ✅ Handle Submit - Show Payment Modal
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -98,23 +123,21 @@ export default function BookAppointmentPage() {
       return;
     }
 
-    // ✅ Show payment modal
+    // ✅ Check if date is available
+    if (!isDateAvailable()) {
+      toast.error('This doctor is not available on the selected date');
+      return;
+    }
+
     const fee = selectedDoctor?.roleData?.consultationFee || 100;
     setPaymentAmount(fee);
     setShowPayment(true);
   };
 
-  // ✅ Payment Success Handler
   const handlePaymentSuccess = () => {
     setShowPayment(false);
     toast.success('Payment successful! Appointment confirmed.');
     router.push('/dashboard/patient/appointments');
-  };
-
-  // ✅ Check if doctor has custom availability
-  const hasCustomAvailability = () => {
-    return selectedDoctor?.roleData?.availability &&
-      selectedDoctor.roleData.availability.length > 0;
   };
 
   if (loading) {
@@ -147,7 +170,7 @@ export default function BookAppointmentPage() {
                     onChange={(e) => {
                       const doc = doctors.find(d => d._id === e.target.value);
                       setSelectedDoctor(doc);
-                      setFormData({ ...formData, doctorId: e.target.value, time: '' });
+                      setFormData({ ...formData, doctorId: e.target.value, time: '', date: '' });
                     }}
                     className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
@@ -155,6 +178,7 @@ export default function BookAppointmentPage() {
                     {doctors.map((doc) => (
                       <option key={doc._id} value={doc._id}>
                         {doc.name} - {doc.roleData?.specialization || 'General Medicine'}
+                        {doc.roleData?.availability?.length === 0 && ' (No availability set)'}
                       </option>
                     ))}
                   </select>
@@ -178,6 +202,18 @@ export default function BookAppointmentPage() {
                         min={new Date().toISOString().split('T')[0]}
                       />
                     </div>
+                    {formData.date && selectedDoctor && hasCustomAvailability() && !isDateAvailable() && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Doctor is not available on this day
+                      </p>
+                    )}
+                    {formData.date && selectedDoctor && hasCustomAvailability() && isDateAvailable() && (
+                      <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        Doctor is available on this day
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -190,7 +226,7 @@ export default function BookAppointmentPage() {
                         value={formData.time}
                         onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                         className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
-                        disabled={!formData.date}
+                        disabled={!formData.date || availableSlots.length === 0}
                       >
                         <option value="">Select time</option>
                         {availableSlots.map((slot: string) => (
@@ -212,7 +248,7 @@ export default function BookAppointmentPage() {
                         {availableSlots.length} slots available
                       </p>
                     )}
-                    {formData.date && !hasCustomAvailability() && (
+                    {formData.date && selectedDoctor && !hasCustomAvailability() && (
                       <p className="text-xs text-blue-400 mt-1 flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
                         Showing default slots (Doctor has not set availability)
@@ -250,7 +286,7 @@ export default function BookAppointmentPage() {
 
                 <button
                   type="submit"
-                  disabled={submitting || !formData.doctorId || !formData.time}
+                  disabled={submitting || !formData.doctorId || !formData.time || !isDateAvailable()}
                   className="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? (
@@ -279,6 +315,15 @@ export default function BookAppointmentPage() {
                   </div>
                   <h3 className="font-semibold text-gray-800 text-lg">{selectedDoctor.name}</h3>
                   <p className="text-sm text-blue-500">{selectedDoctor.roleData?.specialization || 'General Medicine'}</p>
+                  {hasCustomAvailability() ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 mt-2">
+                      ✅ Availability Set
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 mt-2">
+                      ⚠️ No Availability Set
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-4 space-y-2 text-sm text-gray-600">
@@ -314,10 +359,19 @@ export default function BookAppointmentPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-400 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      No availability set. Showing default slots.
-                    </p>
+                    <div>
+                      <p className="text-xs text-gray-400 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        No availability set. All days available with default slots.
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+                          <span key={day} className="text-xs px-2 py-1 bg-gray-100 text-gray-500 rounded-full">
+                            {day}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -331,7 +385,7 @@ export default function BookAppointmentPage() {
         </div>
       </div>
 
-      {/* ✅ Payment Modal - এখানে থাকবে */}
+      {/* Payment Modal */}
       <PaymentModal
         isOpen={showPayment}
         onClose={() => setShowPayment(false)}

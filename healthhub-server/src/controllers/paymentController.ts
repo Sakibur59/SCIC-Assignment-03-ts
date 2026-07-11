@@ -75,7 +75,7 @@ export const createPaymentIntent = async (req: any, res: Response) => {
       symptoms: appointmentData.symptoms || '',
       notes: appointmentData.notes || '',
       status: 'pending',
-      paymentStatus: 'pending',
+      paymentStatus: 'Paid',
       amount: amount,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -250,10 +250,20 @@ export const cancelPaymentIntent = async (req: any, res: Response) => {
       });
     }
 
- 
-    const canceledIntent = await stripe.paymentIntents.cancel(paymentIntentId);
+    try {
+      await stripe.paymentIntents.cancel(paymentIntentId);
+      console.log('✅ Stripe payment intent cancelled:', paymentIntentId);
+    } catch (stripeError: any) {
+      console.warn('⚠️ Stripe cancel warning:', stripeError.message);
+    }
 
-    console.log('✅ Payment intent cancelled:', canceledIntent.id);
+    const appointmentsCollection = db.getCollection('appointments');
+    const deleteResult = await appointmentsCollection.deleteOne({
+      paymentIntentId: paymentIntentId,
+      paymentStatus: 'Paid',
+    });
+
+    console.log('🗑️ Draft appointment cleaned up:', deleteResult.deletedCount);
 
     res.status(200).json({
       success: true,

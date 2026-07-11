@@ -37,10 +37,7 @@ const PaymentForm = ({ onClose, onSuccess, doctorName, amount, doctorId, appoint
   }, []);
 
   const createPaymentIntent = async () => {
-    if (isCreating) return;
-    
     try {
-      setIsCreating(true);
       setLoading(true);
       console.log('📤 Creating payment intent...');
 
@@ -61,15 +58,6 @@ const PaymentForm = ({ onClose, onSuccess, doctorName, amount, doctorId, appoint
       console.log('📥 Payment intent response:', data);
 
       if (data.success) {
-        if (data.mock) {
-          toast.success('Appointment booked successfully!');
-          setPaymentCompleted(true);
-          setTimeout(() => {
-            onSuccess();
-            onClose();
-          }, 1000);
-          return;
-        }
         setClientSecret(data.clientSecret);
       } else {
         if (data.duplicate) {
@@ -83,10 +71,8 @@ const PaymentForm = ({ onClose, onSuccess, doctorName, amount, doctorId, appoint
       setError(error.message || 'Failed to initialize payment');
     } finally {
       setLoading(false);
-      setIsCreating(false);
     }
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements || !clientSecret || paymentCompleted) return;
@@ -133,35 +119,35 @@ const PaymentForm = ({ onClose, onSuccess, doctorName, amount, doctorId, appoint
     setLoading(false);
   };
 
-const handleClose = async () => {
-  if (!paymentCompleted && clientSecret) {
+  const handleClose = async () => {
+    if (!paymentCompleted && clientSecret) {
 
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/cancel-payment-intent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          paymentIntentId: clientSecret.split('_secret_')[0], // Extract 
-        }),
-      });
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/cancel-payment-intent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+          body: JSON.stringify({
+            paymentIntentId: clientSecret.split('_secret_')[0], // Extract 
+          }),
+        });
 
-      if (response.ok) {
-        console.log('✅ Payment intent cancelled');
+        if (response.ok) {
+          console.log('✅ Payment intent cancelled');
+        }
+      } catch (error) {
+        console.error('❌ Failed to cancel payment:', error);
       }
-    } catch (error) {
-      console.error('❌ Failed to cancel payment:', error);
-    }
 
-    toast('Payment cancelled.', {
-      icon: 'ℹ️',
-      duration: 3000,
-    });
-  }
-  onClose();
-};
+      toast('Payment cancelled.', {
+        icon: 'ℹ️',
+        duration: 3000,
+      });
+    }
+    onClose();
+  };
   if (paymentCompleted) {
     return (
       <div className="p-6 text-center">
@@ -179,8 +165,8 @@ const handleClose = async () => {
     <div className="p-6">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-bold text-gray-800">Pay for Appointment</h3>
-        <button 
-          onClick={handleClose} 
+        <button
+          onClick={handleClose}
           className="text-gray-400 hover:text-gray-600 transition-colors"
           disabled={loading}
         >
