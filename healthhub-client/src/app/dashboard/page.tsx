@@ -135,7 +135,7 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {user?.role === 'patient' && (
               <>
-                <Link href="/appointment?doctor=">
+                <Link href="/dashboard/patient/book-appointment">
                   <button className="w-full text-left px-4 py-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
                     📅 Book New Appointment
                   </button>
