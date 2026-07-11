@@ -38,20 +38,30 @@ export const getMyAppointments = async (req: any, res: Response) => {
     let appointments;
 
     if (user.role === "patient") {
+
       appointments = await AppointmentModel.getAppointmentsWithDetails(userId);
     } else if (user.role === "doctor") {
-      appointments = await AppointmentModel.getAppointmentsWithDetails(
-        undefined,
-        userId,
-      );
-    } else {
-      appointments = await AppointmentModel.getAppointmentsWithDetails();
-    }
 
-    // ✅ Log for debugging
-    console.log(`📋 Found ${appointments.length} appointments`);
-    if (appointments.length > 0) {
-      console.log('👨‍⚕️ First appointment doctor:', appointments[0]?.doctor);
+      const doctorsCollection = db.getCollection("doctors");
+      const doctor = await doctorsCollection.findOne({
+        userId: new ObjectId(userId),
+      });
+
+      if (doctor) {
+ 
+        appointments = await AppointmentModel.getAppointmentsWithDetails(
+          undefined,
+          doctor._id,
+        );
+        console.log(`👨‍⚕️ Doctor found: ${doctor.name}, ID: ${doctor._id}`);
+        console.log(`📋 Found ${appointments.length} appointments for doctor`);
+      } else {
+        console.log("❌ Doctor profile not found for user:", userId);
+        appointments = [];
+      }
+    } else {
+      // Admin: সব appointments
+      appointments = await AppointmentModel.getAppointmentsWithDetails();
     }
 
     res.status(200).json({
@@ -121,72 +131,97 @@ export const cancelAppointment = async (req: Request, res: Response) => {
     });
   }
 };
+
 export const getAppointment = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.userId;
-    
+
     const appointment = await AppointmentModel.findById(id);
     if (!appointment) {
       return res.status(404).json({
         success: false,
-        message: 'Appointment not found'
+        message: "Appointment not found",
       });
     }
 
     // Check authorization
-    if (appointment.patientId.toString() !== userId && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to view this appointment'
+    if (
+      appointment.patientId.toString() !== userId &&
+      req.user.role !== "admin" &&
+      req.user.role !== "doctor"
+    ) {
+      // Doctor can view appointment if they are the doctor
+      const doctorsCollection = db.getCollection("doctors");
+      const doctor = await doctorsCollection.findOne({
+        userId: new ObjectId(userId),
       });
+      if (doctor && doctor._id.toString() !== appointment.doctorId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized to view this appointment",
+        });
+      }
     }
 
-    // ✅ Get doctor details
-    const doctorsCollection = db.getCollection('doctors');
-    const doctor = await doctorsCollection.findOne({ _id: new ObjectId(appointment.doctorId) });
-    
+    const doctorsCollection = db.getCollection("doctors");
+    const doctor = await doctorsCollection.findOne({
+      _id: new ObjectId(appointment.doctorId),
+    });
+
     let doctorData = {
-      name: 'Doctor',
-      specialization: 'General Medicine',
-      address: '',
-      phone: '',
+      name: "Doctor",
+      specialization: "General Medicine",
+      address: "",
+      phone: "",
       experience: 0,
       consultationFee: 100,
-      rating: 4.5
+      rating: 4.5,
     };
 
     if (doctor) {
-      const usersCollection = db.getCollection('users');
+      const usersCollection = db.getCollection("users");
       const userData = await usersCollection.findOne({ _id: doctor.userId });
-      
+
       doctorData = {
-        name: userData?.name || 'Doctor',
-        specialization: doctor.specialization || 'General Medicine',
-        address: userData?.address || '',
-        phone: userData?.phone || '',
+        name: userData?.name || "Doctor",
+        specialization: doctor.specialization || "General Medicine",
+        address: userData?.address || "",
+        phone: userData?.phone || "",
         experience: doctor.experience || 0,
         consultationFee: doctor.consultationFee || 100,
-        rating: doctor.rating || 4.5
+        rating: doctor.rating || 4.5,
       };
     }
+
+
+    const usersCollection = db.getCollection("users");
+    const patientData = await usersCollection.findOne({
+      _id: appointment.patientId,
+    });
+
+    let patientInfo = {
+      name: patientData?.name || "Patient",
+      email: patientData?.email || "",
+      phone: patientData?.phone || "",
+    };
 
     res.status(200).json({
       success: true,
       data: {
         ...appointment,
-        doctor: doctorData
+        doctor: doctorData,
+        patient: patientInfo,
       },
     });
   } catch (error: any) {
-    console.error('Get appointment error:', error);
+    console.error("Get appointment error:", error);
     res.status(400).json({
       success: false,
-      message: error.message || 'Failed to get appointment',
+      message: error.message || "Failed to get appointment",
     });
   }
 };
-
 
 export const updateAppointment = async (req: any, res: Response) => {
   try {
@@ -202,15 +237,22 @@ export const updateAppointment = async (req: any, res: Response) => {
       });
     }
 
-    // Check if user owns this appointment
+    // Check if user owns this appointment (patient)
     if (
       appointment.patientId.toString() !== userId &&
       req.user.role !== "admin"
     ) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to update this appointment",
+      // Check if user is the doctor
+      const doctorsCollection = db.getCollection("doctors");
+      const doctor = await doctorsCollection.findOne({
+        userId: new ObjectId(userId),
       });
+      if (doctor && doctor._id.toString() !== appointment.doctorId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: "Not authorized to update this appointment",
+        });
+      }
     }
 
     const updated = await AppointmentModel.update(id, {

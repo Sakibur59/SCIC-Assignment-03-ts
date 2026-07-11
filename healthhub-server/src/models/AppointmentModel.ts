@@ -163,7 +163,7 @@ export class AppointmentModel {
     const result = await collection.aggregate(pipeline).toArray();
     console.log(`📊 Found ${result.length} appointments with doctor details`);
     
-    // ✅ Log first appointment doctor name for debugging
+   
     if (result.length > 0) {
       console.log('👨‍⚕️ First doctor name:', result[0]?.doctor?.name);
     }

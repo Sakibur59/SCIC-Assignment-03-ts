@@ -3,19 +3,38 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
-import { Calendar, FileText, User, Stethoscope, Clock, Users, Heart, Activity } from 'lucide-react';
+import { 
+  Calendar, FileText, User, Stethoscope, Clock, Users, Heart, Activity,
+  TrendingUp, DollarSign, CheckCircle, XCircle, Clock as ClockIcon,
+  BarChart3, Briefcase, Hospital, Pill, Syringe
+} from 'lucide-react';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalAppointments: 0,
     pendingAppointments: 0,
+    confirmedAppointments: 0,
+    completedAppointments: 0,
+    cancelledAppointments: 0,
     totalDoctors: 0,
     totalPatients: 0,
+    todayAppointments: 0,
+    earnings: 0,
+    healthScore: 92,
+    rating: 4.8,
+    totalUsers: 0,
+    totalRevenue: 0,
+    activeDoctors: 0,
+    totalDepartments: 0,
   });
-  const [loading, setLoading] = useState(true);
+  
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
+  const [allAppointments, setAllAppointments] = useState<any[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -24,26 +43,47 @@ export default function DashboardPage() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      
+      const role = user?.role;
+
       // Get appointments
       const appointmentsRes = await api.getMyAppointments();
       const appointments = appointmentsRes.data || [];
+      setAllAppointments(appointments);
       
       // Get doctors
       const doctorsRes = await api.getDoctors();
       const doctors = doctorsRes.data || [];
+
+      // Today's date
+      const today = new Date().toISOString().split('T')[0];
       
-      setStats({
-        totalAppointments: appointments.length,
-        pendingAppointments: appointments.filter((a: any) => a.status === 'pending').length,
-        totalDoctors: doctors.length,
-        totalPatients: 0, // Will implement later
-      });
+      // Filter today's appointments
+      const todayApps = appointments.filter((apt: any) => 
+        apt.date && apt.date.split('T')[0] === today
+      );
+      setTodayAppointments(todayApps);
+
+      // Calculate stats
+      const total = appointments.length;
+      const pending = appointments.filter((a: any) => a.status === 'pending').length;
+      const confirmed = appointments.filter((a: any) => a.status === 'confirmed').length;
+      const completed = appointments.filter((a: any) => a.status === 'completed').length;
+      const cancelled = appointments.filter((a: any) => a.status === 'cancelled').length;
       
-      // Recent activity (last 3 appointments)
-      const recent = appointments.slice(0, 3).map((apt: any) => ({
+      // Unique patients from appointments (for doctor)
+      const uniquePatients = new Set(appointments.map((a: any) => a.patientId));
+      
+      // Earnings (completed appointments) - for doctor
+      const earnings = appointments
+        .filter((a: any) => a.status === 'completed')
+        .reduce((sum: number, a: any) => sum + (a.consultationFee || 100), 0);
+
+      // Recent activity (last 5 appointments)
+      const recent = appointments.slice(0, 5).map((apt: any) => ({
         id: apt._id,
-        message: `Appointment ${apt.status} with ${apt.doctor?.name || 'Doctor'}`,
+        message: role === 'doctor' 
+          ? `Appointment ${apt.status} with ${apt.patient?.name || 'Patient'}`
+          : `Appointment ${apt.status} with ${apt.doctor?.name || 'Doctor'}`,
         time: new Date(apt.createdAt).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
@@ -51,46 +91,132 @@ export default function DashboardPage() {
           minute: '2-digit'
         }),
         status: apt.status,
+        date: apt.date,
       }));
+
+      setStats({
+        totalAppointments: total,
+        pendingAppointments: pending,
+        confirmedAppointments: confirmed,
+        completedAppointments: completed,
+        cancelledAppointments: cancelled,
+        totalDoctors: doctors.length,
+        totalPatients: uniquePatients.size,
+        todayAppointments: todayApps.length,
+        earnings: earnings,
+        totalUsers: doctors.length + 10,
+        totalRevenue: earnings * 0.7,
+        activeDoctors: doctors.filter((d: any) => d.active !== false).length || doctors.length,
+        totalDepartments: 8,
+        healthScore: 92,
+        rating: 4.8,
+      });
+
       setRecentActivity(recent);
-      
+
+      // ✅ Debug log
+      console.log('📋 Doctor appointments:', appointments);
+      console.log('👨‍⚕️ Today appointments:', todayApps);
+      console.log('👤 Patient names:', appointments.map(a => a.patient?.name));
+
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"><ClockIcon className="h-3 w-3 mr-1" /> Pending</span>;
+      case 'confirmed':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"><CheckCircle className="h-3 w-3 mr-1" /> Confirmed</span>;
+      case 'cancelled':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"><XCircle className="h-3 w-3 mr-1" /> Cancelled</span>;
+      case 'completed':
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"><CheckCircle className="h-3 w-3 mr-1" /> Completed</span>;
+      default:
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">{status}</span>;
+    }
+  };
+
+  // ============ PATIENT STATS ============
+  const getPatientStats = () => {
+    return [
+      { label: 'Appointments', value: stats.totalAppointments, icon: Calendar, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900' },
+      { label: 'Pending', value: stats.pendingAppointments, icon: Clock, color: 'text-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-900' },
+      { label: 'Doctors', value: stats.totalDoctors, icon: Stethoscope, color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900' },
+      { label: 'Health Score', value: `${stats.healthScore}%`, icon: Heart, color: 'text-red-500', bg: 'bg-red-100 dark:bg-red-900' },
+    ];
+  };
+
+  // ============ DOCTOR STATS ============
+  const getDoctorStats = () => {
+    return [
+      { label: 'Patients', value: stats.totalPatients, icon: Users, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900' },
+      { label: 'Appointments', value: stats.totalAppointments, icon: Calendar, color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900' },
+      { label: 'Today\'s Schedule', value: stats.todayAppointments, icon: Clock, color: 'text-yellow-500', bg: 'bg-yellow-100 dark:bg-yellow-900' },
+      { label: 'Earnings', value: `$${stats.earnings}`, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900' },
+    ];
+  };
+
+  // ============ ADMIN STATS ============
+  const getAdminStats = () => {
+    return [
+      { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900' },
+      { label: 'Doctors', value: stats.activeDoctors, icon: Stethoscope, color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900' },
+      { label: 'Appointments', value: stats.totalAppointments, icon: Calendar, color: 'text-purple-500', bg: 'bg-purple-100 dark:bg-purple-900' },
+      { label: 'Revenue', value: `$${stats.totalRevenue}`, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900' },
+    ];
+  };
+
   const getStats = () => {
+    const role = user?.role;
+    if (role === 'patient') return getPatientStats();
+    if (role === 'doctor') return getDoctorStats();
+    if (role === 'admin') return getAdminStats();
+    return getPatientStats();
+  };
+
+  const currentStats = getStats();
+
+  // ============ QUICK ACTIONS ============
+  const getQuickActions = () => {
     const role = user?.role;
     
     if (role === 'patient') {
       return [
-        { label: 'Appointments', value: stats.totalAppointments, icon: Calendar, color: 'text-blue-500', bg: 'bg-blue-100' },
-        { label: 'Pending', value: stats.pendingAppointments, icon: Clock, color: 'text-yellow-500', bg: 'bg-yellow-100' },
-        { label: 'Doctors', value: stats.totalDoctors, icon: Stethoscope, color: 'text-green-500', bg: 'bg-green-100' },
-        { label: 'Health Score', value: '92%', icon: Heart, color: 'text-red-500', bg: 'bg-red-100' },
+        { label: 'Book Appointment', icon: '📅', href: '/dashboard/patient/book-appointment', color: 'bg-blue-50 dark:bg-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900' },
+        { label: 'My Appointments', icon: '📋', href: '/dashboard/patient/appointments', color: 'bg-green-50 dark:bg-green-900/50 hover:bg-green-100 dark:hover:bg-green-900' },
+        { label: 'Medical Records', icon: '📄', href: '/dashboard/patient/records', color: 'bg-purple-50 dark:bg-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900' },
+        { label: 'My Doctors', icon: '👨‍⚕️', href: '/dashboard/patient/my-doctors', color: 'bg-pink-50 dark:bg-pink-900/50 hover:bg-pink-100 dark:hover:bg-pink-900' },
       ];
     }
     
     if (role === 'doctor') {
       return [
-        { label: 'Patients', value: '45', icon: Users, color: 'text-blue-500', bg: 'bg-blue-100' },
-        { label: 'Appointments', value: stats.totalAppointments, icon: Calendar, color: 'text-green-500', bg: 'bg-green-100' },
-        { label: 'Pending', value: stats.pendingAppointments, icon: Clock, color: 'text-yellow-500', bg: 'bg-yellow-100' },
-        { label: 'Rating', value: '4.8⭐', icon: Activity, color: 'text-purple-500', bg: 'bg-purple-100' },
+        { label: 'My Schedule', icon: '📋', href: '/dashboard/doctor/schedule', color: 'bg-blue-50 dark:bg-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900' },
+        { label: 'Appointments', icon: '📅', href: '/dashboard/doctor/appointments', color: 'bg-green-50 dark:bg-green-900/50 hover:bg-green-100 dark:hover:bg-green-900' },
+        { label: 'My Patients', icon: '👥', href: '/dashboard/doctor/patients', color: 'bg-purple-50 dark:bg-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900' },
+        { label: 'Settings', icon: '⚙️', href: '/dashboard/doctor/settings', color: 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700' },
       ];
     }
     
-    return [
-      { label: 'Users', value: '150', icon: Users, color: 'text-blue-500', bg: 'bg-blue-100' },
-      { label: 'Doctors', value: stats.totalDoctors, icon: Stethoscope, color: 'text-green-500', bg: 'bg-green-100' },
-      { label: 'Appointments', value: stats.totalAppointments, icon: Calendar, color: 'text-purple-500', bg: 'bg-purple-100' },
-      { label: 'Revenue', value: '$12,450', icon: Heart, color: 'text-emerald-500', bg: 'bg-emerald-100' },
-    ];
+    if (role === 'admin') {
+      return [
+        { label: 'Admin Dashboard', icon: '📊', href: '/dashboard/admin/dashboard', color: 'bg-red-50 dark:bg-red-900/50 hover:bg-red-100 dark:hover:bg-red-900' },
+        { label: 'User Management', icon: '👥', href: '/dashboard/admin/users', color: 'bg-blue-50 dark:bg-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900' },
+        { label: 'Doctor Management', icon: '👨‍⚕️', href: '/dashboard/admin/doctors', color: 'bg-green-50 dark:bg-green-900/50 hover:bg-green-100 dark:hover:bg-green-900' },
+        { label: 'Appointments', icon: '📅', href: '/dashboard/admin/appointments', color: 'bg-purple-50 dark:bg-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900' },
+      ];
+    }
+    
+    return [];
   };
 
-  const currentStats = getStats();
+  const quickActions = getQuickActions();
 
   if (loading) {
     return (
@@ -104,97 +230,123 @@ export default function DashboardPage() {
     <div>
       {/* Welcome Section */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Welcome back, {user?.name}!</h1>
-        <p className="text-gray-500 mt-1">Here's what's happening with your health journey</p>
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+          {user?.role === 'doctor' ? 'Doctor Dashboard' : 
+           user?.role === 'admin' ? 'Admin Dashboard' : 
+           'Welcome back'}, {user?.name}!
+        </h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">
+          {user?.role === 'doctor' ? 'Manage your patients and appointments' :
+           user?.role === 'admin' ? 'Monitor and manage the entire system' :
+           "Here's what's happening with your health journey"}
+        </p>
+        {user?.role === 'doctor' && (
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+            Today is {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
+        )}
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {currentStats.map((stat, index) => (
           <div
             key={index}
-            className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow border border-gray-100"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow border border-gray-100 dark:border-gray-700"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">{stat.label}</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{stat.value}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</p>
+                <p className="text-xl font-bold text-gray-800 dark:text-white mt-1">{stat.value}</p>
               </div>
-              <div className={`${stat.bg} p-3 rounded-lg`}>
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
+              <div className={`${stat.bg} p-2.5 rounded-lg`}>
+                <stat.icon className={`h-5 w-5 ${stat.color}`} />
               </div>
             </div>
           </div>
         ))}
       </div>
 
+      {/* Today's Appointments (for Doctor) */}
+      {user?.role === 'doctor' && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-semibold text-gray-800 dark:text-white">
+              Today's Appointments
+              <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">
+                ({todayAppointments.length})
+              </span>
+            </h3>
+            <Link href="/dashboard/doctor/appointments">
+              <button className="text-blue-500 text-sm hover:underline">View All</button>
+            </Link>
+          </div>
+          {todayAppointments.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 dark:text-gray-500">
+              <Calendar className="h-12 w-12 mx-auto mb-2" />
+              <p>No appointments scheduled for today</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {todayAppointments.slice(0, 5).map((apt: any) => (
+                <div key={apt._id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-300 font-bold text-sm">
+                      {apt.patient?.name?.charAt(0) || 'P'}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800 dark:text-white text-sm">
+                        {apt.patient?.name || 'Patient'}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <Clock className="h-3 w-3" />
+                        <span>{apt.time}</span>
+                        <span>•</span>
+                        <span className="truncate max-w-[100px]">{apt.symptoms || 'No symptoms'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {getStatusBadge(apt.status)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Quick Actions & Recent Activity */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h3 className="font-semibold text-gray-800 mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            {user?.role === 'patient' && (
-              <>
-                <Link href="/dashboard/patient/book-appointment">
-                  <button className="w-full text-left px-4 py-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                    📅 Book New Appointment
-                  </button>
-                </Link>
-                <Link href="/my-doctors">
-                  <button className="w-full text-left px-4 py-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
-                    🏥 View My Doctors
-                  </button>
-                </Link>
-              </>
-            )}
-            {user?.role === 'doctor' && (
-              <>
-                <Link href="/doctor/schedule">
-                  <button className="w-full text-left px-4 py-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                    📋 View Today's Schedule
-                  </button>
-                </Link>
-                <Link href="/doctor/patients">
-                  <button className="w-full text-left px-4 py-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
-                    👨‍⚕️ Manage Patients
-                  </button>
-                </Link>
-              </>
-            )}
-            {user?.role === 'admin' && (
-              <>
-                <Link href="/admin/users">
-                  <button className="w-full text-left px-4 py-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                    👥 Manage Users
-                  </button>
-                </Link>
-                <Link href="/admin/doctors">
-                  <button className="w-full text-left px-4 py-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
-                    🏥 Manage Doctors
-                  </button>
-                </Link>
-              </>
-            )}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-800 dark:text-white mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {quickActions.map((action, index) => (
+              <Link key={index} href={action.href}>
+                <button className={`w-full text-left px-4 py-3 ${action.color} rounded-lg transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2`}>
+                  <span>{action.icon}</span>
+                  {action.label}
+                </button>
+              </Link>
+            ))}
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h3 className="font-semibold text-gray-800 mb-4">Recent Activity</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-800 dark:text-white mb-4">Recent Activity</h3>
           {recentActivity.length === 0 ? (
-            <p className="text-gray-400 text-center py-4">No recent activity</p>
+            <p className="text-gray-400 dark:text-gray-500 text-center py-4">No recent activity</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 max-h-[250px] overflow-y-auto">
               {recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <div className={`w-2 h-2 rounded-full mt-2 ${
+                <div key={index} className="flex items-start gap-3 pb-3 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                  <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
                     activity.status === 'pending' ? 'bg-yellow-500' :
                     activity.status === 'confirmed' ? 'bg-green-500' :
                     activity.status === 'cancelled' ? 'bg-red-500' :
                     'bg-blue-500'
                   }`}></div>
-                  <div>
-                    <p className="text-sm text-gray-700">{activity.message}</p>
-                    <p className="text-xs text-gray-400">{activity.time}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{activity.message}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{activity.time}</p>
                   </div>
                 </div>
               ))}
@@ -202,6 +354,56 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Admin Extra Stats */}
+      {user?.role === 'admin' && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
+                <Briefcase className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Departments</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">{stats.totalDepartments}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg">
+                <Hospital className="h-5 w-5 text-indigo-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Active Doctors</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">{stats.activeDoctors}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="bg-pink-100 dark:bg-pink-900 p-2 rounded-lg">
+                <Pill className="h-5 w-5 text-pink-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Appointments</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">{stats.totalAppointments}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-100 dark:bg-emerald-900 p-2 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Revenue</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">${stats.totalRevenue}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
