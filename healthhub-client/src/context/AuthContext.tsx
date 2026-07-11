@@ -79,13 +79,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     toast.success('Logged out successfully');
   };
-
+  const updateUser = async () => {
+    try {
+      const response = await api.getMe();
+      setUser(response.data);
+    } catch (error) {
+      console.error('Failed to update user:', error);
+    }
+  };
   const value = {
     user,
     loading,
     login,
     register,
     logout,
+    updateUser,
     isAuthenticated: !!user,
   };
 

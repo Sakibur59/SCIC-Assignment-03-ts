@@ -235,3 +235,4 @@ export const updateProfile = async (req: any, res: Response) => {
     });
   }
 };
+
