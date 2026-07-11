@@ -148,12 +148,6 @@ export default function DashboardLayout({
     if (role === 'admin') {
       items.push(
         {
-          label: 'Admin Dashboard',
-          icon: BarChart3,
-          href: '/dashboard/admin/dashboard',
-          color: 'text-red-500',
-        },
-        {
           label: 'User Management',
           icon: Users,
           href: '/dashboard/admin/users',

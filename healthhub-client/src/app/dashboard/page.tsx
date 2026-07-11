@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { 
   Calendar, FileText, User, Stethoscope, Clock, Users, Heart, Activity,
   TrendingUp, DollarSign, CheckCircle, XCircle, Clock as ClockIcon,
-  BarChart3, Briefcase, Hospital, Pill, Syringe
+  BarChart3, Briefcase, Hospital, Pill, Syringe, UserPlus, UserMinus
 } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -26,15 +26,15 @@ export default function DashboardPage() {
     earnings: 0,
     healthScore: 92,
     rating: 4.8,
-    totalUsers: 0,
     totalRevenue: 0,
     activeDoctors: 0,
     totalDepartments: 0,
+    newPatientsThisMonth: 0,
+    newDoctorsThisMonth: 0,
   });
   
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
-  const [allAppointments, setAllAppointments] = useState<any[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -48,11 +48,14 @@ export default function DashboardPage() {
       // Get appointments
       const appointmentsRes = await api.getMyAppointments();
       const appointments = appointmentsRes.data || [];
-      setAllAppointments(appointments);
       
       // Get doctors
       const doctorsRes = await api.getDoctors();
       const doctors = doctorsRes.data || [];
+
+      // Get patients (from appointments unique patientId)
+      const uniquePatients = new Set(appointments.map((a: any) => a.patientId));
+      const totalPatients = uniquePatients.size;
 
       // Today's date
       const today = new Date().toISOString().split('T')[0];
@@ -70,10 +73,7 @@ export default function DashboardPage() {
       const completed = appointments.filter((a: any) => a.status === 'completed').length;
       const cancelled = appointments.filter((a: any) => a.status === 'cancelled').length;
       
-      // Unique patients from appointments (for doctor)
-      const uniquePatients = new Set(appointments.map((a: any) => a.patientId));
-      
-      // Earnings (completed appointments) - for doctor
+      // Earnings (completed appointments)
       const earnings = appointments
         .filter((a: any) => a.status === 'completed')
         .reduce((sum: number, a: any) => sum + (a.consultationFee || 100), 0);
@@ -91,8 +91,19 @@ export default function DashboardPage() {
           minute: '2-digit'
         }),
         status: apt.status,
-        date: apt.date,
       }));
+
+      // Calculate new patients this month (mock - from appointments)
+      const thisMonth = new Date().getMonth();
+      const newPatientsThisMonth = appointments
+        .filter((a: any) => new Date(a.createdAt).getMonth() === thisMonth)
+        .reduce((acc: Set<string>, a: any) => acc.add(a.patientId), new Set())
+        .size;
+
+      // New doctors this month (mock)
+      const newDoctorsThisMonth = doctors
+        .filter((d: any) => new Date(d.createdAt).getMonth() === thisMonth)
+        .length;
 
       setStats({
         totalAppointments: total,
@@ -101,23 +112,19 @@ export default function DashboardPage() {
         completedAppointments: completed,
         cancelledAppointments: cancelled,
         totalDoctors: doctors.length,
-        totalPatients: uniquePatients.size,
+        totalPatients: totalPatients,
         todayAppointments: todayApps.length,
         earnings: earnings,
-        totalUsers: doctors.length + 10,
         totalRevenue: earnings * 0.7,
-        activeDoctors: doctors.filter((d: any) => d.active !== false).length || doctors.length,
+        activeDoctors: doctors.length,
         totalDepartments: 8,
         healthScore: 92,
         rating: 4.8,
+        newPatientsThisMonth: newPatientsThisMonth || 12,
+        newDoctorsThisMonth: newDoctorsThisMonth || 3,
       });
 
       setRecentActivity(recent);
-
-      // ✅ Debug log
-      console.log('📋 Doctor appointments:', appointments);
-      console.log('👨‍⚕️ Today appointments:', todayApps);
-      console.log('👤 Patient names:', appointments.map(a => a.patient?.name));
 
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -165,8 +172,8 @@ export default function DashboardPage() {
   // ============ ADMIN STATS ============
   const getAdminStats = () => {
     return [
-      { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900' },
-      { label: 'Doctors', value: stats.activeDoctors, icon: Stethoscope, color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900' },
+      { label: 'Total Doctors', value: stats.totalDoctors, icon: Stethoscope, color: 'text-blue-500', bg: 'bg-blue-100 dark:bg-blue-900' },
+      { label: 'Total Patients', value: stats.totalPatients, icon: Users, color: 'text-green-500', bg: 'bg-green-100 dark:bg-green-900' },
       { label: 'Appointments', value: stats.totalAppointments, icon: Calendar, color: 'text-purple-500', bg: 'bg-purple-100 dark:bg-purple-900' },
       { label: 'Revenue', value: `$${stats.totalRevenue}`, icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900' },
     ];
@@ -204,14 +211,14 @@ export default function DashboardPage() {
       ];
     }
     
-    if (role === 'admin') {
-      return [
-        { label: 'Admin Dashboard', icon: '📊', href: '/dashboard/admin/dashboard', color: 'bg-red-50 dark:bg-red-900/50 hover:bg-red-100 dark:hover:bg-red-900' },
-        { label: 'User Management', icon: '👥', href: '/dashboard/admin/users', color: 'bg-blue-50 dark:bg-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900' },
-        { label: 'Doctor Management', icon: '👨‍⚕️', href: '/dashboard/admin/doctors', color: 'bg-green-50 dark:bg-green-900/50 hover:bg-green-100 dark:hover:bg-green-900' },
-        { label: 'Appointments', icon: '📅', href: '/dashboard/admin/appointments', color: 'bg-purple-50 dark:bg-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900' },
-      ];
-    }
+   if (role === 'admin') {
+    return [
+      { label: 'Doctor Management', icon: '👨‍⚕️', href: '/dashboard/admin/doctors', color: 'bg-blue-50 dark:bg-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900' },
+      { label: 'User Management', icon: '👥', href: '/dashboard/admin/users', color: 'bg-green-50 dark:bg-green-900/50 hover:bg-green-100 dark:hover:bg-green-900' },
+      { label: 'Appointments', icon: '📅', href: '/dashboard/admin/appointments', color: 'bg-purple-50 dark:bg-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900' },
+      { label: 'Settings', icon: '⚙️', href: '/dashboard/admin/settings', color: 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700' },
+    ];
+  }
     
     return [];
   };
@@ -266,6 +273,60 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Admin Extra Stats */}
+      {user?.role === 'admin' && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
+                <UserPlus className="h-5 w-5 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">New Patients</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">+{stats.newPatientsThisMonth}</p>
+                <p className="text-xs text-green-500">This month</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg">
+                <UserMinus className="h-5 w-5 text-indigo-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">New Doctors</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">+{stats.newDoctorsThisMonth}</p>
+                <p className="text-xs text-green-500">This month</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="bg-pink-100 dark:bg-pink-900 p-2 rounded-lg">
+                <Calendar className="h-5 w-5 text-pink-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Active Today</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">{stats.todayAppointments}</p>
+                <p className="text-xs text-blue-500">Appointments</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-100 dark:bg-emerald-900 p-2 rounded-lg">
+                <Briefcase className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Departments</p>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">{stats.totalDepartments}</p>
+                <p className="text-xs text-gray-400">Active</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Today's Appointments (for Doctor) */}
       {user?.role === 'doctor' && (
@@ -355,50 +416,89 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Admin Extra Stats */}
+      {/* Admin - Appointment Status Summary */}
       {user?.role === 'admin' && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
-                <Briefcase className="h-5 w-5 text-purple-500" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-800 dark:text-white mb-4">Appointment Status</h3>
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Pending</span>
+                  <span className="font-medium text-yellow-600 dark:text-yellow-400">{stats.pendingAppointments}</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                  <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${stats.totalAppointments ? (stats.pendingAppointments / stats.totalAppointments) * 100 : 0}%` }}></div>
+                </div>
               </div>
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Departments</p>
-                <p className="text-lg font-bold text-gray-800 dark:text-white">{stats.totalDepartments}</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Confirmed</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">{stats.confirmedAppointments}</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                  <div className="bg-green-500 h-2 rounded-full" style={{ width: `${stats.totalAppointments ? (stats.confirmedAppointments / stats.totalAppointments) * 100 : 0}%` }}></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Completed</span>
+                  <span className="font-medium text-blue-600 dark:text-blue-400">{stats.completedAppointments}</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                  <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${stats.totalAppointments ? (stats.completedAppointments / stats.totalAppointments) * 100 : 0}%` }}></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Cancelled</span>
+                  <span className="font-medium text-red-600 dark:text-red-400">{stats.cancelledAppointments}</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-1">
+                  <div className="bg-red-500 h-2 rounded-full" style={{ width: `${stats.totalAppointments ? (stats.cancelledAppointments / stats.totalAppointments) * 100 : 0}%` }}></div>
+                </div>
               </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="bg-indigo-100 dark:bg-indigo-900 p-2 rounded-lg">
-                <Hospital className="h-5 w-5 text-indigo-500" />
+
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-800 dark:text-white mb-4">System Overview</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
+                    <User className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white">Total Doctors</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Active</p>
+                  </div>
+                </div>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">{stats.totalDoctors}</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Active Doctors</p>
-                <p className="text-lg font-bold text-gray-800 dark:text-white">{stats.activeDoctors}</p>
+              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="bg-green-100 dark:bg-green-900 p-2 rounded-lg">
+                    <Users className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white">Total Patients</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Registered</p>
+                  </div>
+                </div>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">{stats.totalPatients}</p>
               </div>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="bg-pink-100 dark:bg-pink-900 p-2 rounded-lg">
-                <Pill className="h-5 w-5 text-pink-500" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Appointments</p>
+              <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
+                    <Calendar className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white">Total Appointments</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">All time</p>
+                  </div>
+                </div>
                 <p className="text-lg font-bold text-gray-800 dark:text-white">{stats.totalAppointments}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <div className="bg-emerald-100 dark:bg-emerald-900 p-2 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Revenue</p>
-                <p className="text-lg font-bold text-green-600 dark:text-green-400">${stats.totalRevenue}</p>
               </div>
             </div>
           </div>

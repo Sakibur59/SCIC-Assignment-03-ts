@@ -2,10 +2,11 @@ import express from 'express';
 import {
   getDoctors,
   getDoctor,
-  getDoctorByUserId, 
+  getDoctorByUserId,
   getDoctorsBySpecialization,
   updateDoctor,
   searchDoctors,
+  deleteDoctor,
 } from '../controllers/doctorController';
 import { protect, authorize } from '../middleware/auth';
 
@@ -14,11 +15,12 @@ const router = express.Router();
 // Public routes
 router.get('/search', searchDoctors);
 router.get('/', getDoctors);
-router.get('/user/:userId', getDoctorByUserId); 
+router.get('/user/:userId', getDoctorByUserId);
 router.get('/specialization/:specialization', getDoctorsBySpecialization);
 router.get('/:id', getDoctor);
 
-
+// Protected routes
 router.put('/:id', protect, authorize('doctor'), updateDoctor);
+router.delete('/:id', protect, authorize('admin'), deleteDoctor); 
 
 export default router;
