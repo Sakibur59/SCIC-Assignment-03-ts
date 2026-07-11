@@ -388,15 +388,25 @@ export const searchDoctors = async (req: Request, res: Response) => {
     });
   }
 };
+
+
 export const updateDoctor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const {
+      name,
+      phone,
+      address,
+      profilePicture,
+      ...doctorFields 
+    } = req.body;
+
     const collection = db.getCollection("doctors");
 
+  
     const result = await collection.findOneAndUpdate(
       { _id: new ObjectId(id) },
-      { $set: { ...updateData, updatedAt: new Date() } },
+      { $set: { ...doctorFields, updatedAt: new Date() } },
       { returnDocument: "after" },
     );
 
@@ -407,7 +417,22 @@ export const updateDoctor = async (req: Request, res: Response) => {
       });
     }
 
+
     const usersCollection = db.getCollection("users");
+
+    const userUpdate: Record<string, any> = {};
+    if (name !== undefined) userUpdate.name = name;
+    if (phone !== undefined) userUpdate.phone = phone;
+    if (address !== undefined) userUpdate.address = address;
+    if (profilePicture !== undefined) userUpdate.profilePicture = profilePicture;
+
+    if (Object.keys(userUpdate).length > 0) {
+      await usersCollection.updateOne(
+        { _id: result.userId },
+        { $set: { ...userUpdate, updatedAt: new Date() } },
+      );
+    }
+
     const user = await usersCollection.findOne({ _id: result.userId });
 
     const formattedDoctor = {
