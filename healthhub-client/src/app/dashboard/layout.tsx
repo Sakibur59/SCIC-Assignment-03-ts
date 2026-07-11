@@ -154,12 +154,6 @@ export default function DashboardLayout({
           color: 'text-blue-500',
         },
         {
-          label: 'Doctor Management',
-          icon: Stethoscope,
-          href: '/dashboard/admin/doctors',
-          color: 'text-green-500',
-        },
-        {
           label: 'Appointments',
           icon: Calendar,
           href: '/dashboard/admin/appointments',

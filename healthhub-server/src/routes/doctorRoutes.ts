@@ -21,6 +21,5 @@ router.get('/:id', getDoctor);
 
 // Protected routes
 router.put('/:id', protect, authorize('doctor'), updateDoctor);
-router.delete('/:id', protect, authorize('admin'), deleteDoctor); 
 
 export default router;

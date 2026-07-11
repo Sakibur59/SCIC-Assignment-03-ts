@@ -9,6 +9,7 @@ import authRoutes from './routes/authRoutes';
 import doctorRoutes from './routes/doctorRoutes';
 import appointmentRoutes from './routes/appointmentRoutes';
 import paymentRoutes from './routes/paymentRoutes';
+import userRoutes from './routes/userRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -49,6 +50,7 @@ app.get('/', (req: Request, res: Response) => {
       auth: '/api/auth',
       doctors: '/api/doctors',
       appointments: '/api/appointments',
+      users: '/api/users',
     },
   });
 });
@@ -58,6 +60,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/users', userRoutes);
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).json({

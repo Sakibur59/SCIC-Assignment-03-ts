@@ -213,7 +213,6 @@ export default function DashboardPage() {
     
    if (role === 'admin') {
     return [
-      { label: 'Doctor Management', icon: '👨‍⚕️', href: '/dashboard/admin/doctors', color: 'bg-blue-50 dark:bg-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900' },
       { label: 'User Management', icon: '👥', href: '/dashboard/admin/users', color: 'bg-green-50 dark:bg-green-900/50 hover:bg-green-100 dark:hover:bg-green-900' },
       { label: 'Appointments', icon: '📅', href: '/dashboard/admin/appointments', color: 'bg-purple-50 dark:bg-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900' },
       { label: 'Settings', icon: '⚙️', href: '/dashboard/admin/settings', color: 'bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700' },
