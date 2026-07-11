@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
-import { 
-  Users, User, Search, Calendar, Clock, Stethoscope, 
-  Phone, Mail, MapPin, CalendarDays, Activity, 
+import {
+  Users, User, Search, Calendar, Clock, Stethoscope,
+  Phone, Mail, MapPin, CalendarDays, Activity,
   ChevronDown, Filter, X, Eye, MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
@@ -40,14 +40,14 @@ export default function DoctorPatientsPage() {
   const loadPatients = async () => {
     try {
       setLoading(true);
-      
+
       // Get all appointments for this doctor
       const appointmentsRes = await api.getMyAppointments();
       const allAppointments = appointmentsRes.data || [];
 
       // Group appointments by patient
       const patientMap = new Map<string, Patient>();
-      
+
       allAppointments.forEach((apt: any) => {
         const patientId = apt.patientId;
         if (!patientMap.has(patientId)) {
@@ -64,16 +64,16 @@ export default function DoctorPatientsPage() {
             appointments: [],
           });
         }
-        
+
         const patient = patientMap.get(patientId)!;
         patient.totalVisits += 1;
         patient.appointments.push(apt);
-        
+
         // Collect symptoms
         if (apt.symptoms) {
           patient.symptoms.push(apt.symptoms);
         }
-        
+
         // Update last visit
         const aptDate = new Date(apt.date);
         if (!patient.lastVisitDate || aptDate > new Date(patient.lastVisitDate)) {
@@ -84,14 +84,14 @@ export default function DoctorPatientsPage() {
 
       // Convert to array and sort
       const patientArray = Array.from(patientMap.values());
-      
+
       // Sort by last visit (most recent first)
       patientArray.sort((a, b) => {
         return new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime();
       });
 
       setPatients(patientArray);
-      
+
     } catch (error) {
       console.error('Error loading patients:', error);
       toast.error('Failed to load patients');
@@ -366,17 +366,7 @@ export default function DoctorPatientsPage() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <Link href={`/appointment?doctor=${selectedPatient.id}`}>
-                  <button className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-                    Book Appointment
-                  </button>
-                </Link>
-                <button className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2">
-                  <MessageSquare className="h-4 w-4" />
-                  Message
-                </button>
-              </div>
+
             </div>
           </div>
         </div>
