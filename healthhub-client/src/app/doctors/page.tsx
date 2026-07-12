@@ -8,6 +8,7 @@ import { Doctor } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Search, Star, MapPin, Clock, Calendar, Filter, X, ChevronDown } from 'lucide-react';
+import Image from 'next/image';
 import toast from 'react-hot-toast';
 
 export default function DoctorsPage() {
@@ -307,8 +308,17 @@ export default function DoctorsPage() {
                                     className="bg-white rounded-xl shadow hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 hover:border-blue-200"
                                 >
                                     <div className="flex items-start gap-4">
-                                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-md">
-                                            {doctor.name?.charAt(0) || 'D'}
+                                        {/* ✅ Profile Image or Initials */}
+                                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-md overflow-hidden flex-shrink-0">
+                                            {doctor.profilePicture ? (
+                                                <img
+                                                    src={doctor.profilePicture}
+                                                    alt={doctor.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                doctor.name?.charAt(0) || 'D'
+                                            )}
                                         </div>
                                         <div className="flex-1">
                                             <h3 className="font-semibold text-gray-800 text-lg">{doctor.name}</h3>
@@ -320,7 +330,12 @@ export default function DoctorsPage() {
                                                 <Clock className="h-3 w-3 text-gray-400" />
                                                 <span className="text-sm text-gray-500">{doctor.roleData?.experience || 0} years</span>
                                             </div>
-
+                                            {doctor.address && (
+                                                <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
+                                                    <MapPin className="h-3 w-3" />
+                                                    <span className="truncate">{doctor.address}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
