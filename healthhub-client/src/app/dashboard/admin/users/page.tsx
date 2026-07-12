@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { 
   Users, Search, Phone, Trash2, Plus, User, Mail,
-  AlertCircle, X
+  AlertCircle, X, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -16,25 +16,12 @@ interface UserType {
   phone: string;
   role: 'patient' | 'doctor' | 'admin';
   createdAt: string;
-  status: 'active' | 'inactive';
+  profilePicture?: string;
+  status?: 'active' | 'inactive';
 }
 
-// ✅ Delete Confirmation Modal Component
-const DeleteModal = ({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  userName, 
-  userRole,
-  loading 
-}: { 
-  isOpen: boolean; 
-  onClose: () => void; 
-  onConfirm: () => void; 
-  userName: string;
-  userRole: string;
-  loading: boolean;
-}) => {
+// ✅ Delete Confirmation Modal
+const DeleteModal = ({ isOpen, onClose, onConfirm, userName, userRole, loading }: any) => {
   if (!isOpen) return null;
 
   return (
@@ -63,18 +50,10 @@ const DeleteModal = ({
         </div>
 
         <div className="flex gap-3 mt-4">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-          >
+          <button onClick={onClose} disabled={loading} className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50">
             Cancel
           </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
+          <button onClick={onConfirm} disabled={loading} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
             {loading ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
@@ -99,8 +78,6 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('All');
-  
-  // ✅ Delete Modal State
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
     userId: '',
@@ -113,57 +90,12 @@ export default function AdminUsersPage() {
     loadUsers();
   }, []);
 
+  // ✅ Load all users from database
   const loadUsers = async () => {
     try {
       setLoading(true);
-      // Get doctors
-      const doctorsRes = await api.getDoctors();
-      const doctors = doctorsRes.data || [];
-      
-      // Get patients (from appointments)
-      const appointmentsRes = await api.getMyAppointments();
-      const appointments = appointmentsRes.data || [];
-      const uniquePatients = new Map();
-      
-      appointments.forEach((apt: any) => {
-        if (apt.patient && !uniquePatients.has(apt.patientId)) {
-          uniquePatients.set(apt.patientId, {
-            _id: apt.patientId,
-            name: apt.patient?.name || 'Unknown',
-            email: apt.patient?.email || '',
-            phone: apt.patient?.phone || '',
-            role: 'patient',
-            createdAt: apt.createdAt || new Date().toISOString(),
-            status: 'active',
-          });
-        }
-      });
-
-      // Combine users
-      const allUsers = [
-        ...doctors.map((d: any) => ({
-          _id: d._id,
-          name: d.name || 'Doctor',
-          email: d.email || '',
-          phone: d.phone || '',
-          role: 'doctor' as const,
-          createdAt: d.createdAt || new Date().toISOString(),
-          status: 'active' as const,
-        })),
-        ...Array.from(uniquePatients.values()),
-        // Add admin (current user)
-        user?.role === 'admin' ? {
-          _id: user._id,
-          name: user.name || 'Admin',
-          email: user.email || '',
-          phone: user.phone || '',
-          role: 'admin' as const,
-          createdAt: new Date().toISOString(),
-          status: 'active' as const,
-        } : null
-      ].filter(Boolean);
-
-      setUsers(allUsers as UserType[]);
+      const response = await api.getAllUsers();
+      setUsers(response.data || []);
     } catch (error) {
       console.error('Error loading users:', error);
       toast.error('Failed to load users');
@@ -199,7 +131,6 @@ export default function AdminUsersPage() {
     patients: users.filter(u => u.role === 'patient').length,
   };
 
-  // ✅ Open Delete Modal
   const handleDeleteClick = (id: string, name: string, role: string) => {
     setDeleteModal({
       isOpen: true,
@@ -210,31 +141,17 @@ export default function AdminUsersPage() {
     });
   };
 
-  // ✅ Confirm Delete - Real API Call
   const handleConfirmDelete = async () => {
     try {
       setDeleteModal(prev => ({ ...prev, loading: true }));
       
-      // ✅ Check if trying to delete self
       if (deleteModal.userId === user?._id) {
         toast.error('You cannot delete your own account');
         setDeleteModal(prev => ({ ...prev, isOpen: false, loading: false }));
         return;
       }
 
-      // ✅ Call delete API based on role
-      let endpoint = '';
-      if (deleteModal.userRole === 'doctor') {
-        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/doctors/${deleteModal.userId}`;
-      } else if (deleteModal.userRole === 'patient') {
-        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/users/${deleteModal.userId}`;
-      } else {
-        toast.error('Cannot delete admin users');
-        setDeleteModal(prev => ({ ...prev, isOpen: false, loading: false }));
-        return;
-      }
-
-      const response = await fetch(endpoint, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${deleteModal.userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -248,7 +165,7 @@ export default function AdminUsersPage() {
 
       toast.success('User deleted successfully');
       setDeleteModal(prev => ({ ...prev, isOpen: false, loading: false }));
-      loadUsers(); // Reload list
+      loadUsers();
     } catch (error: any) {
       toast.error(error.message || 'Failed to delete user');
       setDeleteModal(prev => ({ ...prev, loading: false }));
@@ -272,9 +189,12 @@ export default function AdminUsersPage() {
             <p className="text-gray-500 dark:text-gray-400">Manage all users in the system</p>
             <p className="text-sm text-blue-500 dark:text-blue-400 mt-1">{stats.total} total users</p>
           </div>
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add User
+          <button
+            onClick={loadUsers}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
           </button>
         </div>
 
@@ -349,9 +269,13 @@ export default function AdminUsersPage() {
                     <tr key={u._id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                            {u.name?.charAt(0) || 'U'}
-                          </div>
+                          {u.profilePicture ? (
+                            <img src={u.profilePicture} alt={u.name} className="w-10 h-10 rounded-full" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
+                              {u.name?.charAt(0) || 'U'}
+                            </div>
+                          )}
                           <div>
                             <p className="font-medium text-gray-800 dark:text-white">{u.name}</p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">{u.email}</p>
@@ -388,7 +312,6 @@ export default function AdminUsersPage() {
         )}
       </div>
 
-      {/* ✅ Delete Confirmation Modal */}
       <DeleteModal
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal(prev => ({ ...prev, isOpen: false }))}

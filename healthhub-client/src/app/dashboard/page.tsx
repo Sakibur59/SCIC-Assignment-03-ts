@@ -35,6 +35,7 @@ export default function DashboardPage() {
   
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -45,6 +46,17 @@ export default function DashboardPage() {
       setLoading(true);
       const role = user?.role;
 
+      let allUsersData: any[] = [];
+      if (role === 'admin') {
+        try {
+          const usersRes = await api.getAllUsers();
+          allUsersData = usersRes.data || [];
+          setAllUsers(allUsersData);
+        } catch (error) {
+          console.error('Error loading users:', error);
+        }
+      }
+
       // Get appointments
       const appointmentsRes = await api.getMyAppointments();
       const appointments = appointmentsRes.data || [];
@@ -53,9 +65,28 @@ export default function DashboardPage() {
       const doctorsRes = await api.getDoctors();
       const doctors = doctorsRes.data || [];
 
-      // Get patients (from appointments unique patientId)
-      const uniquePatients = new Set(appointments.map((a: any) => a.patientId));
-      const totalPatients = uniquePatients.size;
+      let totalPatients = 0;
+      let totalDoctors = 0;
+
+      if (role === 'admin') {
+  
+        totalPatients = allUsersData.filter((u: any) => u.role === 'patient').length;
+        totalDoctors = allUsersData.filter((u: any) => u.role === 'doctor').length;
+        
+        if (totalPatients === 0 && totalDoctors === 0) {
+          const uniquePatients = new Set(appointments.map((a: any) => a.patientId));
+          totalPatients = uniquePatients.size;
+          totalDoctors = doctors.length;
+        }
+      } else if (role === 'doctor') {
+        const uniquePatients = new Set(appointments.map((a: any) => a.patientId));
+        totalPatients = uniquePatients.size;
+        totalDoctors = 1; 
+      } else {
+        const uniqueDoctors = new Set(appointments.map((a: any) => a.doctorId));
+        totalPatients = 1;
+        totalDoctors = uniqueDoctors.size || doctors.length;
+      }
 
       // Today's date
       const today = new Date().toISOString().split('T')[0];
@@ -93,17 +124,27 @@ export default function DashboardPage() {
         status: apt.status,
       }));
 
-      // Calculate new patients this month (mock - from appointments)
+      // Calculate new patients this month
       const thisMonth = new Date().getMonth();
-      const newPatientsThisMonth = appointments
-        .filter((a: any) => new Date(a.createdAt).getMonth() === thisMonth)
-        .reduce((acc: Set<string>, a: any) => acc.add(a.patientId), new Set())
-        .size;
+      let newPatientsThisMonth = 0;
+      let newDoctorsThisMonth = 0;
 
-      // New doctors this month (mock)
-      const newDoctorsThisMonth = doctors
-        .filter((d: any) => new Date(d.createdAt).getMonth() === thisMonth)
-        .length;
+      if (role === 'admin') {
+        newPatientsThisMonth = allUsersData
+          .filter((u: any) => u.role === 'patient' && new Date(u.createdAt).getMonth() === thisMonth)
+          .length;
+        newDoctorsThisMonth = allUsersData
+          .filter((u: any) => u.role === 'doctor' && new Date(u.createdAt).getMonth() === thisMonth)
+          .length;
+      } else {
+        newPatientsThisMonth = appointments
+          .filter((a: any) => new Date(a.createdAt).getMonth() === thisMonth)
+          .reduce((acc: Set<string>, a: any) => acc.add(a.patientId), new Set())
+          .size;
+        newDoctorsThisMonth = doctors
+          .filter((d: any) => new Date(d.createdAt).getMonth() === thisMonth)
+          .length;
+      }
 
       setStats({
         totalAppointments: total,
@@ -111,17 +152,17 @@ export default function DashboardPage() {
         confirmedAppointments: confirmed,
         completedAppointments: completed,
         cancelledAppointments: cancelled,
-        totalDoctors: doctors.length,
+        totalDoctors: totalDoctors,
         totalPatients: totalPatients,
         todayAppointments: todayApps.length,
         earnings: earnings,
         totalRevenue: earnings * 0.7,
-        activeDoctors: doctors.length,
+        activeDoctors: totalDoctors,
         totalDepartments: 8,
         healthScore: 92,
         rating: 4.8,
-        newPatientsThisMonth: newPatientsThisMonth || 12,
-        newDoctorsThisMonth: newDoctorsThisMonth || 3,
+        newPatientsThisMonth: newPatientsThisMonth || 0,
+        newDoctorsThisMonth: newDoctorsThisMonth || 0,
       });
 
       setRecentActivity(recent);

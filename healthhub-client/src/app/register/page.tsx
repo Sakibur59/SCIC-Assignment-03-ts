@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Eye, EyeOff, Heart, ArrowRight, User, Mail, Lock, Calendar, Stethoscope, DollarSign, Clock, Plus, X } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
+import { GoogleLoginButton } from '@/components/GoogleLoginButton';
 import toast from 'react-hot-toast';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -96,7 +97,6 @@ export default function RegisterPage() {
       if (formData.role === 'patient') {
         data.dateOfBirth = formData.dateOfBirth;
       } else if (formData.role === 'doctor') {
-        // ✅ Clean availability data
         const cleanAvailability = availability
           .map(a => ({
             ...a,
@@ -112,12 +112,16 @@ export default function RegisterPage() {
       }
 
       await register(data);
-      router.push('/');
+      router.push('/dashboard');
     } catch (error) {
       // Error handled in auth context
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = () => {
+    router.push('/dashboard');
   };
 
   return (
@@ -139,6 +143,24 @@ export default function RegisterPage() {
             <div className="mb-6">
               <h1 className="text-3xl font-bold text-gray-800">Create Account</h1>
               <p className="text-gray-500 mt-2">Join our healthcare community today</p>
+            </div>
+
+            {/* ✅ Google Sign-Up Button */}
+            <div className="mb-6">
+              <GoogleLoginButton 
+                onSuccess={handleGoogleSuccess} 
+                role={formData.role || 'patient'}
+              />
+            </div>
+
+            {/* Divider */}
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-gray-500">Or register with email</span>
+              </div>
             </div>
 
             {/* Form */}
@@ -323,7 +345,7 @@ export default function RegisterPage() {
                     </div>
                   </div>
 
-                  {/* ✅ Availability Section */}
+                  {/* Availability Section */}
                   <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
                     <div className="flex justify-between items-center mb-3">
                       <label className="text-sm font-medium text-gray-700">

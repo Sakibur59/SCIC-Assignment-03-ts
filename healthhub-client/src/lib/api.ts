@@ -118,6 +118,9 @@ class ApiService {
   async getAppointment(id: string): Promise<any> {
     return this.request(`/appointments/${id}`);
   }
+  async getAllUsers(): Promise<ApiResponse<UserType[]>> {
+  return this.request('/users');
+}
 
   async updateAppointment(id: string, data: any): Promise<any> {
     return this.request(`/appointments/${id}`, {

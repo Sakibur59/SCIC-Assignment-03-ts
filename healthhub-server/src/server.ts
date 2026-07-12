@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { db } from './config/database';
+import googleAuthRoutes from './routes/googleAuthRoutes';
 
 // Import routes
 import authRoutes from './routes/authRoutes';
@@ -61,6 +62,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/auth/google', googleAuthRoutes);
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).json({

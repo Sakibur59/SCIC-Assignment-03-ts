@@ -12,6 +12,8 @@ interface AuthContextType {
   register: (data: any) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  setUser: (user: User | null) => void;
+  updateUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,7 +36,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const loadUser = async () => {
-      const token = localStorage.getItem('token');
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       if (token) {
         try {
           const response = await api.getMe();
@@ -55,7 +57,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       const response = await api.login({ email, password });
       localStorage.setItem('token', response.data.token);
-      localStorage.setItem('userRole', response.data.user.role); 
+      localStorage.setItem('userRole', response.data.user.role);
       document.cookie = `token=${response.data.token}; path=/; max-age=${7 * 24 * 60 * 60}`;
       setUser(response.data.user);
       toast.success('Login successful!');
@@ -67,13 +69,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Add to register function
   const register = async (data: any) => {
     try {
       setLoading(true);
       const response = await api.register(data);
       localStorage.setItem('token', response.data.token);
-      localStorage.setItem('userRole', response.data.user.role); 
+      localStorage.setItem('userRole', response.data.user.role);
       document.cookie = `token=${response.data.token}; path=/; max-age=${7 * 24 * 60 * 60}`;
       setUser(response.data.user);
       toast.success('Registration successful!');
@@ -85,10 +86,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Add to logout function
   const logout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('userRole'); 
+    localStorage.removeItem('userRole');
     document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     setUser(null);
     toast.success('Logged out successfully');
@@ -101,6 +101,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Failed to update user:', error);
     }
   };
+  const setUserData = (userData: User | null) => {
+    setUser(userData);
+  };
+
   const value = {
     user,
     loading,
@@ -108,6 +112,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     updateUser,
+    setUser: setUserData,
     isAuthenticated: !!user,
   };
 

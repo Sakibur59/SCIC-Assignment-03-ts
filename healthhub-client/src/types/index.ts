@@ -3,7 +3,7 @@ export interface User {
   id?: string;
   name: string;
   email: string;
-  role: 'admin' | 'doctor' | 'patient';
+  role: "admin" | "doctor" | "patient";
   profilePicture?: string;
   phone?: string;
   address?: string;
@@ -24,6 +24,16 @@ export interface Doctor extends User {
     consultationFee: number;
   };
 }
+export interface UserType {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: "patient" | "doctor" | "admin";
+  createdAt: string;
+  profilePicture?: string;
+  status?: "active" | "inactive";
+}
 
 export interface Patient extends User {
   roleData?: {
@@ -40,7 +50,7 @@ export interface Appointment {
   doctorId: string;
   date: string;
   time: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: "pending" | "confirmed" | "cancelled" | "completed";
   symptoms: string;
   notes?: string;
   createdAt?: string;
@@ -65,7 +75,7 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
-  role?: 'admin' | 'doctor' | 'patient';
+  role?: "admin" | "doctor" | "patient";
   dateOfBirth?: string;
   specialization?: string;
   experience?: number;
