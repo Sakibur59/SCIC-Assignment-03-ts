@@ -15,6 +15,7 @@ export const createAppointment = async (req: any, res: Response) => {
       time,
       symptoms,
       notes,
+      consultationFee,
     });
 
     res.status(201).json({
@@ -60,7 +61,6 @@ export const getMyAppointments = async (req: any, res: Response) => {
         appointments = [];
       }
     } else {
-      // Admin: সব appointments
       appointments = await AppointmentModel.getAppointmentsWithDetails();
     }
 
@@ -261,6 +261,7 @@ export const updateAppointment = async (req: any, res: Response) => {
       symptoms: symptoms || appointment.symptoms,
       notes: notes || appointment.notes,
       doctorId: doctorId || appointment.doctorId,
+      consultationFee: appointment.consultationFee,
       status: "pending", // Reset status on reschedule
     });
 

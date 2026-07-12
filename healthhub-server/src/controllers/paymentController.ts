@@ -23,7 +23,6 @@ export const createPaymentIntent = async (req: any, res: Response) => {
     const { doctorId, amount, appointmentData } = req.body;
     const patientId = req.userId;
 
- 
     if (!stripeSecretKey || stripeSecretKey === 'dummy_key_for_testing') {
       return res.status(400).json({
         success: false,
@@ -47,8 +46,10 @@ export const createPaymentIntent = async (req: any, res: Response) => {
     const doctorsCollection = db.getCollection('doctors');
     const doctor = await doctorsCollection.findOne({ _id: new ObjectId(doctorId) });
 
-    const appointmentsCollection = db.getCollection('appointments');
+    // ✅ Get consultation fee from doctor
+    const consultationFee = doctor?.consultationFee || 100;
 
+    const appointmentsCollection = db.getCollection('appointments');
 
     const existingAppointment = await appointmentsCollection.findOne({
       patientId: new ObjectId(patientId),
@@ -65,8 +66,6 @@ export const createPaymentIntent = async (req: any, res: Response) => {
         duplicate: true,
       });
     }
-
- 
     const appointmentDoc = {
       patientId: new ObjectId(patientId),
       doctorId: new ObjectId(doctorId),
@@ -76,6 +75,7 @@ export const createPaymentIntent = async (req: any, res: Response) => {
       notes: appointmentData.notes || '',
       status: 'pending',
       paymentStatus: 'Paid',
+      consultationFee: consultationFee, 
       amount: amount,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -95,6 +95,7 @@ export const createPaymentIntent = async (req: any, res: Response) => {
       },
       receipt_email: patient?.email,
     });
+    
     await appointmentsCollection.updateOne(
       { _id: appointmentId },
       {
@@ -103,8 +104,6 @@ export const createPaymentIntent = async (req: any, res: Response) => {
         },
       }
     );
-
-
 
     res.status(200).json({
       success: true,

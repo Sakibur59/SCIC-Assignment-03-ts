@@ -49,6 +49,10 @@ export interface IAppointment {
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   symptoms: string;
   notes?: string;
+  consultationFee: number;
+  paymentIntentId?: string;
+  paymentStatus?: string;
+  amount?: number;
   createdAt: Date;
   updatedAt: Date;
 }

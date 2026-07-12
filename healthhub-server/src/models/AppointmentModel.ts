@@ -14,6 +14,7 @@ export class AppointmentModel {
     const appointment: IAppointment = {
       ...appointmentData,
       status: "pending",
+      consultationFee: appointmentData.consultationFee || 100,
       createdAt: now,
       updatedAt: now,
     } as IAppointment;
@@ -140,6 +141,9 @@ export class AppointmentModel {
           status: 1,
           symptoms: 1,
           notes: 1,
+          consultationFee: 1,
+          paymentIntentId: 1,
+          paymentStatus: 1,
           createdAt: 1,
           updatedAt: 1,
           patient: {

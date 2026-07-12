@@ -156,7 +156,7 @@ export default function DashboardPage() {
         totalPatients: totalPatients,
         todayAppointments: todayApps.length,
         earnings: earnings,
-        totalRevenue: earnings * 0.7,
+        totalRevenue: earnings,
         activeDoctors: totalDoctors,
         totalDepartments: 8,
         healthScore: 92,
