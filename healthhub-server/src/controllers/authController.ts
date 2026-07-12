@@ -1,37 +1,36 @@
-import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
-import { UserModel } from '../models/UserModel';
-import { PatientModel } from '../models/PatientModel';
-import { DoctorModel } from '../models/DoctorModel';
-import { RegisterRequest, LoginRequest } from '../types';
-import { ObjectId } from 'mongodb';
+import { Request, Response } from "express";
+import jwt from "jsonwebtoken";
+import { UserModel } from "../models/UserModel";
+import { PatientModel } from "../models/PatientModel";
+import { DoctorModel } from "../models/DoctorModel";
+import { RegisterRequest, LoginRequest } from "../types";
+import { ObjectId } from "mongodb";
 
-const generateToken = (id: string): string => {
-  return jwt.sign({ id }, process.env.JWT_SECRET!, {
+const generateToken = (id: string, role: string): string => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET!, {
     expiresIn: process.env.JWT_EXPIRE,
   });
 };
-
 export const register = async (req: Request, res: Response) => {
   try {
-    const { 
-      name, 
-      email, 
-      password, 
-      role = 'patient',
+    const {
+      name,
+      email,
+      password,
+      role = "patient",
       dateOfBirth,
       specialization,
       experience,
       education,
       consultationFee,
-      availability 
+      availability,
     } = req.body as RegisterRequest;
 
     const existingUser = await UserModel.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'User already exists with this email'
+        message: "User already exists with this email",
       });
     }
 
@@ -42,23 +41,23 @@ export const register = async (req: Request, res: Response) => {
       role,
     });
 
-    if (role === 'patient') {
+    if (role === "patient") {
       await PatientModel.create({
         userId: user._id!,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : new Date(),
       });
-    } else if (role === 'doctor') {
+    } else if (role === "doctor") {
       await DoctorModel.create({
         userId: user._id!,
-        specialization: specialization || 'General Medicine',
+        specialization: specialization || "General Medicine",
         experience: experience || 0,
-        education: education || ['MBBS'],
+        education: education || ["MBBS"],
         consultationFee: consultationFee || 500,
-        availability: availability || [], 
+        availability: availability || [],
       });
     }
 
-    const token = generateToken(user._id!.toString());
+    const token = generateToken(user._id!.toString(), user.role);
     const { password: _, ...userWithoutPassword } = user;
 
     res.status(201).json({
@@ -69,10 +68,10 @@ export const register = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Registration error:', error);
+    console.error("Registration error:", error);
     res.status(400).json({
       success: false,
-      message: error.message || 'Registration failed',
+      message: error.message || "Registration failed",
     });
   }
 };
@@ -84,7 +83,7 @@ export const login = async (req: Request, res: Response) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email and password'
+        message: "Please provide email and password",
       });
     }
 
@@ -92,7 +91,7 @@ export const login = async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: "Invalid credentials",
       });
     }
 
@@ -100,7 +99,7 @@ export const login = async (req: Request, res: Response) => {
     if (!isPasswordMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: "Invalid credentials",
       });
     }
 
@@ -115,10 +114,10 @@ export const login = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Login error:', error);
+    console.error("Login error:", error);
     res.status(400).json({
       success: false,
-      message: error.message || 'Login failed',
+      message: error.message || "Login failed",
     });
   }
 };
@@ -127,17 +126,17 @@ export const getMe = async (req: any, res: Response) => {
   try {
     const userId = req.userId;
     const user = await UserModel.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
     let roleData = null;
-    if (user.role === 'patient') {
+    if (user.role === "patient") {
       roleData = await PatientModel.findByUserId(userId);
-    } else if (user.role === 'doctor') {
+    } else if (user.role === "doctor") {
       roleData = await DoctorModel.findByUserId(userId);
     }
 
@@ -149,10 +148,10 @@ export const getMe = async (req: any, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Get me error:', error);
+    console.error("Get me error:", error);
     res.status(400).json({
       success: false,
-      message: error.message || 'Failed to get user data',
+      message: error.message || "Failed to get user data",
     });
   }
 };
@@ -160,14 +159,14 @@ export const getMe = async (req: any, res: Response) => {
 export const updateProfile = async (req: any, res: Response) => {
   try {
     const userId = req.userId;
-    const { 
-      name, 
-      phone, 
+    const {
+      name,
+      phone,
       address,
       dateOfBirth,
       bloodGroup,
       allergies,
-      medicalHistory
+      medicalHistory,
     } = req.body;
 
     // ✅ Update user basic info
@@ -175,7 +174,7 @@ export const updateProfile = async (req: any, res: Response) => {
       name: name || req.user.name,
       phone: phone || req.user.phone,
       address: address || req.user.address,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     const updatedUser = await UserModel.update(userId, userUpdateData);
@@ -183,39 +182,39 @@ export const updateProfile = async (req: any, res: Response) => {
     if (!updatedUser) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
     // ✅ Update patient profile (if role is patient)
-    if (req.user.role === 'patient') {
+    if (req.user.role === "patient") {
       const patientUpdateData: any = {
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
         bloodGroup: bloodGroup || undefined,
         allergies: allergies || [],
         medicalHistory: medicalHistory || [],
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
 
       // Remove undefined fields
-      Object.keys(patientUpdateData).forEach(key => {
+      Object.keys(patientUpdateData).forEach((key) => {
         if (patientUpdateData[key] === undefined) {
           delete patientUpdateData[key];
         }
       });
 
-      const PatientModel = require('../models/PatientModel').PatientModel;
+      const PatientModel = require("../models/PatientModel").PatientModel;
       await PatientModel.update(userId, patientUpdateData);
     }
 
     // ✅ Get updated user with role data
     const user = await UserModel.findById(userId);
     let roleData = null;
-    if (req.user.role === 'patient') {
-      const PatientModel = require('../models/PatientModel').PatientModel;
+    if (req.user.role === "patient") {
+      const PatientModel = require("../models/PatientModel").PatientModel;
       roleData = await PatientModel.findByUserId(userId);
-    } else if (req.user.role === 'doctor') {
-      const DoctorModel = require('../models/DoctorModel').DoctorModel;
+    } else if (req.user.role === "doctor") {
+      const DoctorModel = require("../models/DoctorModel").DoctorModel;
       roleData = await DoctorModel.findByUserId(userId);
     }
 
@@ -223,16 +222,15 @@ export const updateProfile = async (req: any, res: Response) => {
       success: true,
       data: {
         ...user,
-        roleData
+        roleData,
       },
-      message: 'Profile updated successfully'
+      message: "Profile updated successfully",
     });
   } catch (error: any) {
-    console.error('Update profile error:', error);
+    console.error("Update profile error:", error);
     res.status(400).json({
       success: false,
-      message: error.message || 'Failed to update profile',
+      message: error.message || "Failed to update profile",
     });
   }
 };
-

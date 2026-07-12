@@ -6,7 +6,6 @@ import {
   getDoctorsBySpecialization,
   updateDoctor,
   searchDoctors,
-  deleteDoctor,
 } from '../controllers/doctorController';
 import { protect, authorize } from '../middleware/auth';
 
