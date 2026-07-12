@@ -42,41 +42,38 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-useEffect(() => {
-  if (!authLoading) {
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
-    }
-
-    if (user) {
-      const role = user.role;
-      const path = pathname;
-
-      // ✅ Admin routes - only admin
-      if (path.startsWith('/dashboard/admin') && role !== 'admin') {
-        router.push('/unauthorized');
+  useEffect(() => {
+    if (!authLoading) {
+      if (!isAuthenticated) {
+        router.push('/login');
         return;
       }
 
-      // ✅ Doctor routes - only doctor
-      if (path.startsWith('/dashboard/doctor') && role !== 'doctor') {
-        router.push('/unauthorized');
-        return;
-      }
+      if (user) {
+        const role = user.role;
+        const path = pathname;
 
-      // ✅ Patient routes - only patient
-      if (path.startsWith('/dashboard/patient') && role !== 'patient') {
-        router.push('/unauthorized');
-        return;
-      }
+        if (path.startsWith('/dashboard/admin') && role !== 'admin') {
+          router.push('/unauthorized');
+          return;
+        }
 
-      if (path === '/dashboard') {
-       
+        if (path.startsWith('/dashboard/doctor') && role !== 'doctor') {
+          router.push('/unauthorized');
+          return;
+        }
+
+        if (path.startsWith('/dashboard/patient') && role !== 'patient') {
+          router.push('/unauthorized');
+          return;
+        }
+
+        if (path === '/dashboard') {
+          // সবাই access পাবে
+        }
       }
     }
-  }
-}, [authLoading, isAuthenticated, user, router, pathname]);
+  }, [authLoading, isAuthenticated, user, router, pathname]);
 
   if (authLoading) {
     return (
@@ -246,8 +243,16 @@ useEffect(() => {
 
           <div className={`p-4 border-b border-gray-100 dark:border-gray-800 ${!isSidebarOpen && 'text-center'}`}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                {user?.name?.charAt(0) || 'U'}
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
+                {user?.profilePicture ? (
+                  <img
+                    src={user.profilePicture}
+                    alt={user.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  user?.name?.charAt(0) || 'U'
+                )}
               </div>
               {isSidebarOpen && (
                 <div className="flex-1 min-w-0">
@@ -329,8 +334,16 @@ useEffect(() => {
 
           <div className="p-4 border-b border-gray-100 dark:border-gray-800">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                {user?.name?.charAt(0) || 'U'}
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm overflow-hidden">
+                {user?.profilePicture ? (
+                  <img
+                    src={user.profilePicture}
+                    alt={user.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  user?.name?.charAt(0) || 'U'
+                )}
               </div>
               <div>
                 <p className="font-semibold text-gray-800 dark:text-white text-sm">{user?.name}</p>

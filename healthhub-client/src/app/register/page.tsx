@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { Eye, EyeOff, Heart, ArrowRight, User, Mail, Lock, Calendar, Stethoscope, DollarSign, Clock, Plus, X } from 'lucide-react';
+import { Eye, EyeOff, Heart, ArrowRight, User, Mail, Lock, Calendar, Stethoscope, DollarSign, Clock, Plus, X, Camera, Upload } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { GoogleLoginButton } from '@/components/GoogleLoginButton';
+import Image from 'next/image';
 import toast from 'react-hot-toast';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -14,8 +15,11 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 export default function RegisterPage() {
   const router = useRouter();
   const { register } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string>('');
+  const [profileFile, setProfileFile] = useState<File | null>(null);
   const [availability, setAvailability] = useState<{ day: string; slots: string[] }[]>([]);
   const [formData, setFormData] = useState({
     name: '',
@@ -29,7 +33,40 @@ export default function RegisterPage() {
     consultationFee: '',
   });
 
-  // Availability handlers
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB');
+      return;
+    }
+
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    setProfileFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setProfilePicture(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    setProfilePicture('');
+    setProfileFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+
   const addDayAvailability = () => {
     const addedDays = availability.map(a => a.day);
     const availableDay = DAYS.find(day => !addedDays.includes(day));
@@ -92,6 +129,7 @@ export default function RegisterPage() {
         email: formData.email,
         password: formData.password,
         role: formData.role,
+        profilePicture: profilePicture || '', // ✅ Add profile picture
       };
 
       if (formData.role === 'patient') {
@@ -165,6 +203,57 @@ export default function RegisterPage() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* ✅ Profile Picture Upload */}
+              <div className="flex flex-col items-center">
+                <div className="relative">
+                  {/* Profile Picture Preview */}
+                  <div 
+                    className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center overflow-hidden cursor-pointer border-4 border-white shadow-lg"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {profilePicture ? (
+                      <img 
+                        src={profilePicture} 
+                        alt="Profile" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-12 w-12 text-white" />
+                    )}
+                  </div>
+                  
+                  {/* Camera Icon Overlay */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute bottom-0 right-0 bg-blue-500 p-1.5 rounded-full border-2 border-white hover:bg-blue-600 transition-colors"
+                  >
+                    <Camera className="h-4 w-4 text-white" />
+                  </button>
+
+                  {/* Remove Image Button */}
+                  {profilePicture && (
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute -top-1 -right-1 bg-red-500 p-1 rounded-full border-2 border-white hover:bg-red-600 transition-colors"
+                    >
+                      <X className="h-3 w-3 text-white" />
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  Click to upload profile picture (Max 5MB)
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -362,7 +451,6 @@ export default function RegisterPage() {
                       </button>
                     </div>
 
-                    {/* Day Toggle Buttons */}
                     <div className="flex flex-wrap gap-2 mb-3">
                       {DAYS.map((day) => {
                         const isAdded = availability.some(a => a.day === day);
@@ -382,7 +470,6 @@ export default function RegisterPage() {
                       })}
                     </div>
 
-                    {/* Availability List */}
                     {availability.length === 0 ? (
                       <p className="text-xs text-gray-400 text-center py-2">
                         No availability set. Click on a day above to add.

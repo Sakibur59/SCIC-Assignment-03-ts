@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
-import { User, Mail, Phone, MapPin, Save, Edit2, Bell, Shield, Moon } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Save, Edit2, Bell, Shield, Moon, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminSettingsPage() {
   const { user, updateUser } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string>('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -27,7 +29,8 @@ export default function AdminSettingsPage() {
       setLoading(true);
       const response = await api.getMe();
       const userData = response.data;
-      
+
+      setProfilePicture(userData.profilePicture || '');
       setFormData({
         name: userData.name || '',
         email: userData.email || '',
@@ -42,25 +45,85 @@ export default function AdminSettingsPage() {
     }
   };
 
+  // Compress Image
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  // Handle Image Upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size should be less than 2MB');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    try {
+      const compressed = await compressImage(file);
+      setProfilePicture(compressed);
+
+      await api.updateProfilePicture(compressed);
+      if (updateUser) await updateUser();
+      toast.success('Profile picture updated!');
+    } catch (error) {
+      toast.error('Failed to upload image');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setSaving(true);
-      
+
       const updateData = {
         name: formData.name,
         phone: formData.phone,
         address: formData.address,
+        profilePicture: profilePicture,
       };
 
-      // ✅ Update user profile
-      const response = await api.updateProfile(updateData);
-      
-      // ✅ Update user in context
-      if (updateUser) {
-        await updateUser();
-      }
-      
+      await api.updateProfile(updateData);
+      if (updateUser) await updateUser();
       toast.success('Settings updated successfully!');
       setEditing(false);
       await loadUserData();
@@ -97,9 +160,28 @@ export default function AdminSettingsPage() {
 
       {/* Profile Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white text-3xl font-bold">
-            {formData.name?.charAt(0) || 'A'}
+        <div className="flex items-center gap-6 mb-6">
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white text-3xl font-bold overflow-hidden">
+              {profilePicture ? (
+                <img src={profilePicture} alt={user?.name} className="w-full h-full object-cover" />
+              ) : (
+                user?.name?.charAt(0) || 'A'
+              )}
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 bg-blue-500 p-1.5 rounded-full border-2 border-white hover:bg-blue-600 transition-colors"
+            >
+              <Camera className="h-4 w-4 text-white" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{formData.name}</h2>
@@ -122,9 +204,8 @@ export default function AdminSettingsPage() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                  }`}
               />
             </div>
             <div>
@@ -152,9 +233,8 @@ export default function AdminSettingsPage() {
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                  }`}
                 placeholder="Enter phone number"
               />
             </div>
@@ -168,9 +248,8 @@ export default function AdminSettingsPage() {
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                  }`}
                 placeholder="Enter address"
               />
             </div>

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
-import { 
-  Plus, X, Save, AlertCircle, User, Mail, Phone, MapPin, 
+import {
+  Plus, X, Save, AlertCircle, User, Mail, Phone, MapPin,
   Stethoscope, DollarSign, Edit2, Bell, Shield, Moon,
-  Clock, Calendar, CheckCircle, Activity
+  Clock, Calendar, CheckCircle, Activity, Camera
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -18,9 +18,11 @@ interface AvailabilitySlot {
 }
 
 export default function DoctorSettingsPage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string>('');
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [doctorId, setDoctorId] = useState<string>('');
   const [doctorData, setDoctorData] = useState<any>(null);
@@ -43,23 +45,22 @@ export default function DoctorSettingsPage() {
   const loadDoctorData = async () => {
     try {
       setLoading(true);
-      
+
       if (!user?._id) {
         toast.error('User not found');
         setLoading(false);
         return;
       }
 
-      // Get doctor by userId
       const response = await api.getDoctorByUserId(user._id);
       const doctor = response.data;
-      
+
       if (doctor) {
         setDoctorId(doctor._id || '');
         setDoctorData(doctor);
+        setProfilePicture(doctor.profilePicture || '');
         setAvailability(doctor.roleData?.availability || []);
-        
-        // Set form data
+
         setFormData({
           name: doctor.name || '',
           email: doctor.email || '',
@@ -70,7 +71,7 @@ export default function DoctorSettingsPage() {
           consultationFee: doctor.roleData?.consultationFee?.toString() || '',
           education: doctor.roleData?.education?.join(', ') || '',
         });
-        
+
         console.log('✅ Doctor profile found:', doctor);
       } else {
         toast.error('Doctor profile not found. Please contact support.');
@@ -87,11 +88,76 @@ export default function DoctorSettingsPage() {
     }
   };
 
+  // ✅ Compress Image
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  // ✅ Handle Image Upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size should be less than 2MB');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    try {
+      const compressed = await compressImage(file);
+      setProfilePicture(compressed);
+
+      await api.updateProfilePicture(compressed);
+      if (updateUser) await updateUser();
+      toast.success('Profile picture updated!');
+    } catch (error) {
+      toast.error('Failed to upload image');
+    }
+  };
+
   // Availability Handlers
   const addDayAvailability = () => {
     const addedDays = availability.map(a => a.day);
     const availableDay = DAYS.find(day => !addedDays.includes(day));
-    
+
     if (availableDay) {
       setAvailability([...availability, { day: availableDay, slots: ['09:00', '10:00'] }]);
     } else {
@@ -144,7 +210,7 @@ export default function DoctorSettingsPage() {
   const handleSaveAvailability = async () => {
     try {
       setSaving(true);
-      
+
       const cleanAvailability = availability.map(a => ({
         ...a,
         slots: a.slots.filter((s: string) => s.trim() !== '')
@@ -169,16 +235,16 @@ export default function DoctorSettingsPage() {
     }
   };
 
-  // Profile Update Handler
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setSaving(true);
-      
+
       const updateData = {
         name: formData.name,
         phone: formData.phone,
         address: formData.address,
+        profilePicture: profilePicture,
         specialization: formData.specialization,
         experience: parseInt(formData.experience) || 0,
         consultationFee: parseInt(formData.consultationFee) || 0,
@@ -186,6 +252,7 @@ export default function DoctorSettingsPage() {
       };
 
       await api.updateDoctor(doctorId, updateData);
+      if (updateUser) await updateUser();
       toast.success('Profile updated successfully!');
       setEditing(false);
       await loadDoctorData();
@@ -225,8 +292,28 @@ export default function DoctorSettingsPage() {
       {/* Doctor Info Card */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold">
-            {user?.name?.charAt(0) || 'D'}
+          {/* ✅ Profile Picture with Upload */}
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold overflow-hidden">
+              {profilePicture ? (
+                <img src={profilePicture} alt={user?.name} className="w-full h-full object-cover" />
+              ) : (
+                user?.name?.charAt(0) || 'D'
+              )}
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 bg-blue-500 p-1.5 rounded-full border-2 border-white hover:bg-blue-600 transition-colors"
+            >
+              <Camera className="h-4 w-4 text-white" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
           </div>
           <div className="flex-1">
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{user?.name}</h2>
@@ -261,9 +348,8 @@ export default function DoctorSettingsPage() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                  }`}
               />
             </div>
             <div>
@@ -291,9 +377,8 @@ export default function DoctorSettingsPage() {
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                  }`}
                 placeholder="Enter phone number"
               />
             </div>
@@ -307,9 +392,8 @@ export default function DoctorSettingsPage() {
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                  }`}
                 placeholder="Enter address"
               />
             </div>
@@ -326,9 +410,8 @@ export default function DoctorSettingsPage() {
                 value={formData.specialization}
                 onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                  }`}
               />
             </div>
             <div>
@@ -341,9 +424,8 @@ export default function DoctorSettingsPage() {
                 value={formData.experience}
                 onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                  }`}
                 placeholder="e.g., 10"
               />
             </div>
@@ -360,9 +442,8 @@ export default function DoctorSettingsPage() {
                 value={formData.consultationFee}
                 onChange={(e) => setFormData({ ...formData, consultationFee: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                  }`}
                 placeholder="e.g., 500"
               />
             </div>
@@ -375,9 +456,8 @@ export default function DoctorSettingsPage() {
                 value={formData.education}
                 onChange={(e) => setFormData({ ...formData, education: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white'
+                  }`}
                 placeholder="e.g., MBBS, MD, FCPS"
               />
             </div>
@@ -404,7 +484,6 @@ export default function DoctorSettingsPage() {
           )}
         </form>
       </div>
-
       {/* Availability Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 mb-6">
         <div className="flex justify-between items-center mb-4">
@@ -429,11 +508,10 @@ export default function DoctorSettingsPage() {
               <button
                 key={day}
                 onClick={() => toggleDay(day)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  isAdded
-                    ? 'bg-blue-500 text-white hover:bg-blue-600'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${isAdded
+                  ? 'bg-blue-500 text-white hover:bg-blue-600'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
               >
                 {day}
               </button>

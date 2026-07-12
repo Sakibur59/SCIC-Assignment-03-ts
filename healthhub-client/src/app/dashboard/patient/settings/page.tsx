@@ -1,20 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
-import { 
-  User, Mail, Phone, MapPin, Calendar, Save, Edit2, 
-  Bell, Shield, Moon, Heart, Stethoscope, FileText, 
-  X, CheckCircle, AlertCircle 
+import {
+  User, Mail, Phone, MapPin, Calendar, Save, Edit2,
+  Bell, Shield, Moon, Heart, Stethoscope, FileText,
+  X, CheckCircle, AlertCircle, Camera
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function PatientSettingsPage() {
-  const { user, login } = useAuth();
+  const { user, updateUser } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string>('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -34,10 +36,10 @@ export default function PatientSettingsPage() {
   const loadUserData = async () => {
     try {
       setLoading(true);
-      
       const response = await api.getMe();
       const userData = response.data;
-      
+
+      setProfilePicture(userData.profilePicture || '');
       setFormData({
         name: userData.name || '',
         email: userData.email || '',
@@ -58,9 +60,74 @@ export default function PatientSettingsPage() {
     }
   };
 
+  // Compress Image
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  // Handle Image Upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size should be less than 2MB');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    try {
+      const compressed = await compressImage(file);
+      setProfilePicture(compressed);
+
+      await api.updateProfilePicture(compressed);
+      if (updateUser) await updateUser();
+      toast.success('Profile picture updated!');
+    } catch (error) {
+      toast.error('Failed to upload image');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       toast.error('Name is required');
       return;
@@ -73,25 +140,17 @@ export default function PatientSettingsPage() {
         name: formData.name.trim(),
         phone: formData.phone.trim(),
         address: formData.address.trim(),
+        profilePicture: profilePicture,
         dateOfBirth: formData.dateOfBirth || undefined,
         bloodGroup: formData.bloodGroup || undefined,
         allergies: formData.allergies.split(',').map(s => s.trim()).filter(Boolean),
         medicalHistory: formData.medicalHistory.split(',').map(s => s.trim()).filter(Boolean),
       };
 
-      // ✅ Call API
-      const response = await api.updateProfile(updateData);
-      
+      await api.updateProfile(updateData);
+      if (updateUser) await updateUser();
       toast.success('Profile updated successfully!');
       setEditing(false);
-      
-      // ✅ Update user in context
-      if (response.data) {
-        // You can update context if needed
-        // login(response.data);
-      }
-      
-      // ✅ Reload data
       await loadUserData();
     } catch (error: any) {
       toast.error(error.message || 'Failed to update profile');
@@ -102,7 +161,7 @@ export default function PatientSettingsPage() {
 
   const handleCancel = () => {
     setEditing(false);
-    loadUserData(); // Reset form data
+    loadUserData();
   };
 
   if (loading) {
@@ -141,9 +200,29 @@ export default function PatientSettingsPage() {
 
       {/* Profile Section */}
       <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold">
-            {user?.name?.charAt(0) || 'U'}
+        {/* ✅ Profile Picture with Upload */}
+        <div className="flex items-center gap-6 mb-6">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-3xl font-bold overflow-hidden">
+              {profilePicture ? (
+                <img src={profilePicture} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                user?.name?.charAt(0) || 'U'
+              )}
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 bg-blue-500 p-1.5 rounded-full border-2 border-white hover:bg-blue-600 transition-colors"
+            >
+              <Camera className="h-4 w-4 text-white" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-800">{user?.name}</h2>
@@ -174,9 +253,8 @@ export default function PatientSettingsPage() {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 disabled={!editing}
                 required
-                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                  }`}
               />
             </div>
             <div>
@@ -204,9 +282,8 @@ export default function PatientSettingsPage() {
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                  }`}
                 placeholder="Enter phone number"
               />
             </div>
@@ -220,9 +297,8 @@ export default function PatientSettingsPage() {
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                  }`}
                 placeholder="Enter address"
               />
             </div>
@@ -239,9 +315,8 @@ export default function PatientSettingsPage() {
                 value={formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString().split('T')[0] : ''}
                 onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                  }`}
               />
             </div>
             <div>
@@ -252,9 +327,8 @@ export default function PatientSettingsPage() {
                 value={formData.bloodGroup}
                 onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
                 disabled={!editing}
-                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-                }`}
+                className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                  }`}
               >
                 <option value="">Select blood group</option>
                 <option value="A+">A+</option>
@@ -278,9 +352,8 @@ export default function PatientSettingsPage() {
               onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
               disabled={!editing}
               rows={2}
-              className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                !editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-              }`}
+              className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                }`}
               placeholder="e.g., Penicillin, Peanuts, Dust"
             />
           </div>
@@ -294,9 +367,8 @@ export default function PatientSettingsPage() {
               onChange={(e) => setFormData({ ...formData, medicalHistory: e.target.value })}
               disabled={!editing}
               rows={2}
-              className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                !editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
-              }`}
+              className={`w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editing ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''
+                }`}
               placeholder="e.g., Diabetes, Hypertension, Asthma"
             />
           </div>

@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   ChevronDown
 } from 'lucide-react';
+import Image from 'next/image';
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -91,8 +92,17 @@ export const Navbar = () => {
                   className="flex items-center gap-2 focus:outline-none group"
                 >
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold text-sm shadow-md group-hover:shadow-lg transition-all">
-                      {getInitials(user?.name || 'User')}
+                    {/* ✅ Profile Image or Initials */}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold text-sm shadow-md group-hover:shadow-lg transition-all overflow-hidden">
+                      {user?.profilePicture ? (
+                        <img 
+                          src={user.profilePicture} 
+                          alt={user.name} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        getInitials(user?.name || 'User')
+                      )}
                     </div>
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
                   </div>
@@ -115,8 +125,16 @@ export const Navbar = () => {
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
                       <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-blue-100/50 border-b border-gray-100">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-                            {getInitials(user?.name || 'User')}
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm overflow-hidden">
+                            {user?.profilePicture ? (
+                              <img 
+                                src={user.profilePicture} 
+                                alt={user.name} 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              getInitials(user?.name || 'User')
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-gray-800 text-sm truncate">
@@ -136,7 +154,6 @@ export const Navbar = () => {
                         </div>
                       </div>
 
-                    
                       <div className="py-1">
                         <Link
                           href="/dashboard"
@@ -208,8 +225,16 @@ export const Navbar = () => {
               {isAuthenticated ? (
                 <>
                   <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
-                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-xs">
-                      {getInitials(user?.name || 'User')}
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-semibold text-xs overflow-hidden">
+                      {user?.profilePicture ? (
+                        <img 
+                          src={user.profilePicture} 
+                          alt={user.name} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        getInitials(user?.name || 'User')
+                      )}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-800">{user?.name}</p>

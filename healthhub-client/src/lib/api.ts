@@ -119,8 +119,8 @@ class ApiService {
     return this.request(`/appointments/${id}`);
   }
   async getAllUsers(): Promise<ApiResponse<UserType[]>> {
-  return this.request('/users');
-}
+    return this.request("/users");
+  }
 
   async updateAppointment(id: string, data: any): Promise<any> {
     return this.request(`/appointments/${id}`, {
@@ -148,6 +148,14 @@ class ApiService {
     return this.request("/auth/profile", {
       method: "PUT",
       body: JSON.stringify(data),
+    });
+  }
+  async updateProfilePicture(
+    profilePicture: string,
+  ): Promise<ApiResponse<User>> {
+    return this.request("/auth/profile/picture", {
+      method: "PUT",
+      body: JSON.stringify({ profilePicture }),
     });
   }
 }

@@ -73,6 +73,7 @@ export interface RegisterRequest {
   education?: string[];
   consultationFee?: number;
   availability?: { day: string; slots: string[] }[];
+  profilePicture?: string;
 }
 
 export interface JwtPayload {
