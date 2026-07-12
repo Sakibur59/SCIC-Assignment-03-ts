@@ -16,6 +16,7 @@
     "@nextui-org/theme": "^2.4.5",
     "@stripe/react-stripe-js": "^6.7.0",
     "@stripe/stripe-js": "^9.9.0",
+    "cookie": "^2.0.1",
     "exceljs": "^4.4.0",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.24.0",

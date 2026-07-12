@@ -52,30 +52,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
+      setLoading(true);
       const response = await api.login({ email, password });
       localStorage.setItem('token', response.data.token);
+      localStorage.setItem('userRole', response.data.user.role); 
+      document.cookie = `token=${response.data.token}; path=/; max-age=${7 * 24 * 60 * 60}`;
       setUser(response.data.user);
       toast.success('Login successful!');
     } catch (error: any) {
       toast.error(error.message || 'Login failed');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Add to register function
   const register = async (data: any) => {
     try {
+      setLoading(true);
       const response = await api.register(data);
       localStorage.setItem('token', response.data.token);
+      localStorage.setItem('userRole', response.data.user.role); 
+      document.cookie = `token=${response.data.token}; path=/; max-age=${7 * 24 * 60 * 60}`;
       setUser(response.data.user);
       toast.success('Registration successful!');
     } catch (error: any) {
       toast.error(error.message || 'Registration failed');
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Add to logout function
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userRole'); 
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
     setUser(null);
     toast.success('Logged out successfully');
   };
