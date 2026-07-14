@@ -36,17 +36,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const loadUser = async () => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      if (token) {
-        try {
-          const response = await api.getMe();
-          setUser(response.data);
-        } catch (error) {
-          localStorage.removeItem('token');
-          setUser(null);
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        
+        if (!token) {
+          setLoading(false);
+          return;
         }
+
+        const response = await api.getMe();
+        setUser(response.data);
+      } catch (error) {
+        console.error('Failed to load user:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('userRole');
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     loadUser();
@@ -59,6 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userRole', response.data.user.role);
       document.cookie = `token=${response.data.token}; path=/; max-age=${7 * 24 * 60 * 60}`;
+      
       setUser(response.data.user);
       toast.success('Login successful!');
     } catch (error: any) {
@@ -73,9 +82,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       const response = await api.register(data);
+      
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userRole', response.data.user.role);
       document.cookie = `token=${response.data.token}; path=/; max-age=${7 * 24 * 60 * 60}`;
+      
       setUser(response.data.user);
       toast.success('Registration successful!');
     } catch (error: any) {
@@ -93,6 +104,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     toast.success('Logged out successfully');
   };
+
   const updateUser = async () => {
     try {
       const response = await api.getMe();
@@ -101,6 +113,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Failed to update user:', error);
     }
   };
+
   const setUserData = (userData: User | null) => {
     setUser(userData);
   };

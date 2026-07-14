@@ -12,7 +12,7 @@ export default function BookAppointmentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const doctorId = searchParams.get('doctor');
-  const { user } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
 
   const [doctors, setDoctors] = useState<any[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<any>(null);
@@ -27,29 +27,28 @@ export default function BookAppointmentPage() {
     symptoms: '',
     notes: '',
   });
-
-  // ✅ Get available time slots based on selected date
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login?redirect=/dashboard/patient/book-appointment');
+    }
+  }, [authLoading, isAuthenticated, router]);
   const getAvailableSlots = () => {
     if (!selectedDoctor || !formData.date) return [];
 
     const dayOfWeek = new Date(formData.date).toLocaleString('en-US', { weekday: 'long' });
     const availability = selectedDoctor.roleData?.availability || [];
 
-    // ✅ If doctor has custom availability, use that
     if (availability.length > 0) {
       const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
       if (dayAvailability && dayAvailability.slots.length > 0) {
         return dayAvailability.slots;
       }
-      // ✅ If doctor has availability but no slots for this day, return empty
       return [];
     }
 
-    // ✅ If doctor has NO availability set, show default slots
     return getDefaultSlots(dayOfWeek);
   };
 
-  // ✅ Default slots (only for doctors with NO availability set)
   const getDefaultSlots = (day: string) => {
     const defaultSlots: { [key: string]: string[] } = {
       'Monday': ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'],
@@ -65,30 +64,27 @@ export default function BookAppointmentPage() {
 
   const availableSlots = getAvailableSlots();
 
-  // ✅ Check if doctor has custom availability
   const hasCustomAvailability = () => {
     return selectedDoctor?.roleData?.availability &&
       selectedDoctor.roleData.availability.length > 0;
   };
 
-  // ✅ Check if selected date is available for this doctor
   const isDateAvailable = () => {
     if (!selectedDoctor || !formData.date) return false;
     
     const dayOfWeek = new Date(formData.date).toLocaleString('en-US', { weekday: 'long' });
     const availability = selectedDoctor.roleData?.availability || [];
 
-    // If doctor has no availability set, all days are available
     if (availability.length === 0) return true;
-
-    // If doctor has availability, check if day exists
     const dayAvailability = availability.find((a: any) => a.day === dayOfWeek);
     return dayAvailability !== undefined;
   };
 
   useEffect(() => {
-    loadDoctors();
-  }, []);
+    if (isAuthenticated) {
+      loadDoctors();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (doctorId && doctors.length > 0) {
@@ -123,7 +119,6 @@ export default function BookAppointmentPage() {
       return;
     }
 
-    // ✅ Check if date is available
     if (!isDateAvailable()) {
       toast.error('This doctor is not available on the selected date');
       return;
@@ -139,13 +134,15 @@ export default function BookAppointmentPage() {
     toast.success('Payment successful! Appointment confirmed.');
     router.push('/dashboard/patient/appointments');
   };
-
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
       </div>
     );
+  }
+  if (!isAuthenticated) {
+    return null;
   }
 
   return (
@@ -246,12 +243,6 @@ export default function BookAppointmentPage() {
                       <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
                         {availableSlots.length} slots available
-                      </p>
-                    )}
-                    {formData.date && selectedDoctor && !hasCustomAvailability() && (
-                      <p className="text-xs text-blue-400 mt-1 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Showing default slots (Doctor has not set availability)
                       </p>
                     )}
                   </div>
