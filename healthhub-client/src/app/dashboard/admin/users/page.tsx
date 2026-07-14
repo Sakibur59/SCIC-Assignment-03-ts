@@ -3,24 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
+import { UserType } from '@/types';
 import { 
-  Users, Search, Phone, Trash2, Plus, User, Mail,
+  Users, Search, Phone, Trash2,
   AlertCircle, X, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-interface UserType {
-  _id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: 'patient' | 'doctor' | 'admin';
-  createdAt: string;
-  profilePicture?: string;
-  status?: 'active' | 'inactive';
-}
-
-// ✅ Delete Confirmation Modal
 const DeleteModal = ({ isOpen, onClose, onConfirm, userName, userRole, loading }: any) => {
   if (!isOpen) return null;
 
@@ -90,7 +79,6 @@ export default function AdminUsersPage() {
     loadUsers();
   }, []);
 
-  // ✅ Load all users from database
   const loadUsers = async () => {
     try {
       setLoading(true);

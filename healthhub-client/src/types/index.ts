@@ -1,6 +1,7 @@
+// src/types/index.ts
+
 export interface User {
-  _id?: string;
-  id?: string;
+  _id: string;
   name: string;
   email: string;
   role: "admin" | "doctor" | "patient";
@@ -23,29 +24,32 @@ export interface Doctor extends User {
     rating: number;
     consultationFee: number;
   };
-}
-export interface UserType {
-  _id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: "patient" | "doctor" | "admin";
-  createdAt: string;
-  profilePicture?: string;
-  status?: "active" | "inactive";
+  specialization?: string;
+  experience?: number;
+  education?: string[];
+  availability?: {
+    day: string;
+    slots: string[];
+  }[];
+  rating?: number;
+  consultationFee?: number;
 }
 
 export interface Patient extends User {
   roleData?: {
-    dateOfBirth: string;
+    dateOfBirth?: string;
     bloodGroup?: string;
     medicalHistory?: string[];
     allergies?: string[];
   };
+  dateOfBirth?: string;
+  bloodGroup?: string;
+  medicalHistory?: string[];
+  allergies?: string[];
 }
 
 export interface Appointment {
-  _id?: string;
+  _id: string;
   patientId: string;
   doctorId: string;
   date: string;
@@ -53,10 +57,53 @@ export interface Appointment {
   status: "pending" | "confirmed" | "cancelled" | "completed";
   symptoms: string;
   notes?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  patient?: User;
-  doctor?: User;
+  consultationFee: number;
+  paymentIntentId?: string;
+  paymentStatus?: string;
+  amount?: number;
+  createdAt: string;
+  updatedAt: string;
+  patient?: {
+    _id: string;
+    name: string;
+    email: string;
+    phone: string;
+    address?: string;
+  };
+  doctor?: {
+    _id: string;
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    specialization: string;
+    experience: number;
+    consultationFee: number;
+    rating: number;
+    profilePicture?: string;
+  };
+}
+
+export interface AppointmentWithDetails extends Appointment {
+  patient: {
+    _id: string;
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+  };
+  doctor: {
+    _id: string;
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    specialization: string;
+    experience: number;
+    consultationFee: number;
+    rating: number;
+    profilePicture?: string;
+  };
 }
 
 export interface ApiResponse<T> {
@@ -81,4 +128,29 @@ export interface RegisterData {
   experience?: number;
   education?: string[];
   consultationFee?: number;
+}
+
+export interface UserType {
+  _id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: "patient" | "doctor" | "admin";
+  createdAt: string;
+  profilePicture?: string;
+  status?: "active" | "inactive";
+  roleData?: {
+    dateOfBirth?: string;
+    bloodGroup?: string;
+    medicalHistory?: string[];
+    allergies?: string[];
+    specialization?: string;
+    experience?: number;
+    availability?: {
+      day: string;
+      slots: string[];
+    }[];
+    consultationFee?: number;
+    rating?: number;
+  };
 }

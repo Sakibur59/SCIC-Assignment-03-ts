@@ -1,3 +1,5 @@
+// src/components/GoogleLoginButton.tsx
+
 'use client';
 
 import { useState } from 'react';
@@ -23,7 +25,6 @@ export const GoogleLoginButton = ({ onSuccess, onError, role = 'patient' }: Goog
                 setLoading(true);
                 console.log('🔑 Google token response:', tokenResponse);
 
-
                 const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                     headers: {
                         Authorization: `Bearer ${tokenResponse.access_token}`,
@@ -31,8 +32,6 @@ export const GoogleLoginButton = ({ onSuccess, onError, role = 'patient' }: Goog
                 });
 
                 const userInfo = await userInfoResponse.json();
-
-
 
                 const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/google/login`, {
                     method: 'POST',
@@ -79,10 +78,17 @@ export const GoogleLoginButton = ({ onSuccess, onError, role = 'patient' }: Goog
         onError: (error) => {
             console.error('❌ Google OAuth error:', error);
 
-            if (error.error === 'invalid_client') {
+            // ✅ Fix: Type guard to check error properties safely
+            const errorMessage = (error as any)?.error || '';
+            
+            if (errorMessage === 'invalid_client') {
                 toast.error('Google Client ID is not configured properly');
-            } else if (error.error === 'popup_closed_by_user') {
+            } else if (errorMessage === 'popup_closed_by_user') {
                 toast.error('Login cancelled');
+            } else if (errorMessage === 'access_denied') {
+                toast.error('Access denied');
+            } else if (errorMessage === 'origin_mismatch') {
+                toast.error('Invalid origin. Please check your Google Console settings.');
             } else {
                 toast.error('Google login failed');
             }

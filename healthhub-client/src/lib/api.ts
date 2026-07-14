@@ -1,3 +1,5 @@
+// src/lib/api.ts
+
 import {
   ApiResponse,
   LoginData,
@@ -5,6 +7,7 @@ import {
   User,
   Doctor,
   Appointment,
+  UserType,
 } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -14,17 +17,6 @@ class ApiService {
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
-  }
-
-  async searchDoctors(
-    query: string,
-    location?: string,
-  ): Promise<ApiResponse<Doctor[]>> {
-    let endpoint = `/doctors/search?q=${encodeURIComponent(query)}`;
-    if (location) {
-      endpoint += `&location=${encodeURIComponent(location)}`;
-    }
-    return this.request(endpoint);
   }
 
   private async request<T>(
@@ -73,7 +65,7 @@ class ApiService {
     });
   }
 
-  async getMe(): Promise<ApiResponse<User>> {
+  async getMe<T = User>(): Promise<ApiResponse<T>> {
     return this.request("/auth/me");
   }
 
@@ -95,12 +87,25 @@ class ApiService {
   ): Promise<ApiResponse<Doctor[]>> {
     return this.request(`/doctors/specialization/${specialization}`);
   }
+
+  async searchDoctors(
+    query: string,
+    location?: string,
+  ): Promise<ApiResponse<Doctor[]>> {
+    let endpoint = `/doctors/search?q=${encodeURIComponent(query)}`;
+    if (location) {
+      endpoint += `&location=${encodeURIComponent(location)}`;
+    }
+    return this.request(endpoint);
+  }
+
   async updateDoctor(id: string, data: any): Promise<any> {
     return this.request(`/doctors/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
   }
+
   // Appointment endpoints
   async createAppointment(
     data: Partial<Appointment>,
@@ -117,9 +122,6 @@ class ApiService {
 
   async getAppointment(id: string): Promise<any> {
     return this.request(`/appointments/${id}`);
-  }
-  async getAllUsers(): Promise<ApiResponse<UserType[]>> {
-    return this.request("/users");
   }
 
   async updateAppointment(id: string, data: any): Promise<any> {
@@ -144,12 +146,19 @@ class ApiService {
       method: "PUT",
     });
   }
+
+  // User endpoints
+  async getAllUsers(): Promise<ApiResponse<UserType[]>> {
+    return this.request("/users");
+  }
+
   async updateProfile(data: any): Promise<ApiResponse<User>> {
     return this.request("/auth/profile", {
       method: "PUT",
       body: JSON.stringify(data),
     });
   }
+
   async updateProfilePicture(
     profilePicture: string,
   ): Promise<ApiResponse<User>> {

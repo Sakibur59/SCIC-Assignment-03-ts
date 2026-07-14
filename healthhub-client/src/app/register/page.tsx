@@ -4,13 +4,31 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { Eye, EyeOff, Heart, ArrowRight, User, Mail, Lock, Calendar, Stethoscope, DollarSign, Clock, Plus, X, Camera, Upload } from 'lucide-react';
+import { Eye, EyeOff, Heart, ArrowRight, User, Mail, Lock, Calendar, Stethoscope, DollarSign, Clock, Plus, X, Camera } from 'lucide-react';
 import { Navbar } from '@/components/layout/Navbar';
 import { GoogleLoginButton } from '@/components/GoogleLoginButton';
-import Image from 'next/image';
 import toast from 'react-hot-toast';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+type UserRole = "admin" | "doctor" | "patient";
+
+interface FormData {
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  dateOfBirth: string;
+  specialization: string;
+  experience: string;
+  education: string;
+  consultationFee: string;
+}
+
+interface AvailabilitySlot {
+  day: string;
+  slots: string[];
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -20,8 +38,8 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string>('');
   const [profileFile, setProfileFile] = useState<File | null>(null);
-  const [availability, setAvailability] = useState<{ day: string; slots: string[] }[]>([]);
-  const [formData, setFormData] = useState({
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     password: '',
@@ -33,17 +51,14 @@ export default function RegisterPage() {
     consultationFee: '',
   });
 
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
 
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Image size should be less than 5MB');
       return;
     }
-
 
     if (!file.type.startsWith('image/')) {
       toast.error('Please upload an image file');
@@ -65,7 +80,6 @@ export default function RegisterPage() {
       fileInputRef.current.value = '';
     }
   };
-
 
   const addDayAvailability = () => {
     const addedDays = availability.map(a => a.day);
@@ -129,7 +143,7 @@ export default function RegisterPage() {
         email: formData.email,
         password: formData.password,
         role: formData.role,
-        profilePicture: profilePicture || '', // ✅ Add profile picture
+        profilePicture: profilePicture || '',
       };
 
       if (formData.role === 'patient') {
@@ -162,6 +176,14 @@ export default function RegisterPage() {
     router.push('/dashboard');
   };
 
+  // ✅ Helper function for role validation
+  const getValidRole = (role: string): UserRole => {
+    if (role === "admin" || role === "doctor" || role === "patient") {
+      return role;
+    }
+    return "patient";
+  };
+
   return (
     <>
       <Navbar />
@@ -183,11 +205,11 @@ export default function RegisterPage() {
               <p className="text-gray-500 mt-2">Join our healthcare community today</p>
             </div>
 
-            {/* ✅ Google Sign-Up Button */}
+            {/* ✅ Google Sign-Up Button with proper role */}
             <div className="mb-6">
               <GoogleLoginButton 
                 onSuccess={handleGoogleSuccess} 
-                role={formData.role || 'patient'}
+                role={getValidRole(formData.role)}
               />
             </div>
 
@@ -203,10 +225,9 @@ export default function RegisterPage() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* ✅ Profile Picture Upload */}
+              {/* Profile Picture Upload */}
               <div className="flex flex-col items-center">
                 <div className="relative">
-                  {/* Profile Picture Preview */}
                   <div 
                     className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center overflow-hidden cursor-pointer border-4 border-white shadow-lg"
                     onClick={() => fileInputRef.current?.click()}
@@ -222,7 +243,6 @@ export default function RegisterPage() {
                     )}
                   </div>
                   
-                  {/* Camera Icon Overlay */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -231,7 +251,6 @@ export default function RegisterPage() {
                     <Camera className="h-4 w-4 text-white" />
                   </button>
 
-                  {/* Remove Image Button */}
                   {profilePicture && (
                     <button
                       type="button"

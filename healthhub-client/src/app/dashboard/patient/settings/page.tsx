@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
+import type { Patient } from "@/types";
 import {
   User, Mail, Phone, MapPin, Calendar, Save, Edit2,
   Bell, Shield, Moon, Heart, Stethoscope, FileText,
@@ -37,7 +38,7 @@ export default function PatientSettingsPage() {
     try {
       setLoading(true);
       const response = await api.getMe();
-      const userData = response.data;
+      const userData = response.data as Patient;
 
       setProfilePicture(userData.profilePicture || '');
       setFormData({
