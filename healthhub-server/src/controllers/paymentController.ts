@@ -13,40 +13,38 @@ if (!stripeSecretKey || stripeSecretKey === 'dummy_key_for_testing') {
   console.warn('⚠️ Please add STRIPE_SECRET_KEY to .env file');
 }
 
+// ✅ Fix: Use correct API version
 const stripe = new Stripe(stripeSecretKey || 'dummy_key_for_testing', {
-  apiVersion: '2026-06-24.dahlia',
+  apiVersion: '2026-06-24.dahlia', // ✅ Match this with your Stripe dashboard
 });
 
-
-export const createPaymentIntent = async (req: any, res: Response) => {
+export const createPaymentIntent = async (req: any, res: Response): Promise<void> => {
   try {
     const { doctorId, amount, appointmentData } = req.body;
     const patientId = req.userId;
 
     if (!stripeSecretKey || stripeSecretKey === 'dummy_key_for_testing') {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Payment system is not configured. Please contact support.',
         configError: true,
       });
+      return;
     }
 
-    // Get patient details
     const usersCollection = db.getCollection('users');
     const patient = await usersCollection.findOne({ _id: new ObjectId(patientId) });
 
     if (!patient) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: 'Patient not found',
       });
+      return;
     }
 
-    // Get doctor details
     const doctorsCollection = db.getCollection('doctors');
     const doctor = await doctorsCollection.findOne({ _id: new ObjectId(doctorId) });
-
-    // ✅ Get consultation fee from doctor
     const consultationFee = doctor?.consultationFee || 100;
 
     const appointmentsCollection = db.getCollection('appointments');
@@ -60,12 +58,14 @@ export const createPaymentIntent = async (req: any, res: Response) => {
     });
 
     if (existingAppointment) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'You already have an appointment with this doctor at this time',
         duplicate: true,
       });
+      return;
     }
+
     const appointmentDoc = {
       patientId: new ObjectId(patientId),
       doctorId: new ObjectId(doctorId),
@@ -74,8 +74,8 @@ export const createPaymentIntent = async (req: any, res: Response) => {
       symptoms: appointmentData.symptoms || '',
       notes: appointmentData.notes || '',
       status: 'pending',
-      paymentStatus: 'Paid',
-      consultationFee: consultationFee, 
+      paymentStatus: 'pending',
+      consultationFee: consultationFee,
       amount: amount,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -95,7 +95,7 @@ export const createPaymentIntent = async (req: any, res: Response) => {
       },
       receipt_email: patient?.email,
     });
-    
+
     await appointmentsCollection.updateOne(
       { _id: appointmentId },
       {
@@ -120,8 +120,7 @@ export const createPaymentIntent = async (req: any, res: Response) => {
   }
 };
 
-// ✅ Webhook Handler
-export const handleWebhook = async (req: Request, res: Response) => {
+export const handleWebhook = async (req: Request, res: Response): Promise<void> => {
   try {
     const sig = req.headers['stripe-signature'] as string;
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -129,8 +128,8 @@ export const handleWebhook = async (req: Request, res: Response) => {
     console.log('📥 Webhook received');
 
     if (!stripeSecretKey || stripeSecretKey === 'dummy_key_for_testing') {
-      console.log('⚠️ Webhook: Mock mode');
-      return res.json({ received: true, mock: true });
+      res.json({ received: true, mock: true });
+      return;
     }
 
     let event;
@@ -139,7 +138,8 @@ export const handleWebhook = async (req: Request, res: Response) => {
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     } catch (err: any) {
       console.error('❌ Webhook error:', err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+      res.status(400).send(`Webhook Error: ${err.message}`);
+      return;
     }
 
     console.log('✅ Webhook event type:', event.type);
@@ -164,7 +164,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
   }
 };
 
-
 const handlePaymentSuccess = async (paymentIntent: any) => {
   try {
     const appointmentsCollection = db.getCollection('appointments');
@@ -172,7 +171,6 @@ const handlePaymentSuccess = async (paymentIntent: any) => {
 
     console.log('📥 Payment success for:', paymentIntent.id);
     console.log('📦 Metadata:', metadata);
-
 
     const existingAppointment = await appointmentsCollection.findOne({
       paymentIntentId: paymentIntent.id,
@@ -192,7 +190,6 @@ const handlePaymentSuccess = async (paymentIntent: any) => {
       );
       return;
     }
-
 
     const appointmentDoc = {
       patientId: new ObjectId(metadata.patientId),
@@ -238,15 +235,16 @@ const handlePaymentFailed = async (paymentIntent: any) => {
   }
 };
 
-export const cancelPaymentIntent = async (req: any, res: Response) => {
+export const cancelPaymentIntent = async (req: any, res: Response): Promise<void> => {
   try {
     const { paymentIntentId } = req.body;
 
     if (!paymentIntentId) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Payment intent ID is required',
       });
+      return;
     }
 
     try {
@@ -257,12 +255,12 @@ export const cancelPaymentIntent = async (req: any, res: Response) => {
     }
 
     const appointmentsCollection = db.getCollection('appointments');
-    const deleteResult = await appointmentsCollection.deleteOne({
+    await appointmentsCollection.deleteOne({
       paymentIntentId: paymentIntentId,
-      paymentStatus: 'Paid',
+      paymentStatus: 'pending',
     });
 
-    console.log('🗑️ Draft appointment cleaned up:', deleteResult.deletedCount);
+    console.log('🗑️ Draft appointment cleaned up');
 
     res.status(200).json({
       success: true,

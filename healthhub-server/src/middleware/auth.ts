@@ -12,7 +12,7 @@ export const protect = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   let token;
 
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -20,10 +20,11 @@ export const protect = async (
   }
 
   if (!token) {
-    return res.status(401).json({ 
+    res.status(401).json({
       success: false,
-      message: 'Not authorized to access this route' 
+      message: 'Not authorized to access this route',
     });
+    return;
   }
 
   try {
@@ -31,37 +32,40 @@ export const protect = async (
     const user = await UserModel.findById(decoded.id);
 
     if (!user) {
-      return res.status(401).json({ 
+      res.status(401).json({
         success: false,
-        message: 'User not found' 
+        message: 'User not found',
       });
+      return;
     }
 
     req.user = user;
     req.userId = decoded.id;
     next();
   } catch (error) {
-    return res.status(401).json({ 
+    res.status(401).json({
       success: false,
-      message: 'Not authorized to access this route' 
+      message: 'Not authorized to access this route',
     });
   }
 };
 
 export const authorize = (...roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
-        message: 'Not authorized'
+        message: 'Not authorized',
       });
+      return;
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
-        message: `User role ${req.user.role} is not authorized to access this route`
+        message: `User role ${req.user.role} is not authorized to access this route`,
       });
+      return;
     }
     next();
   };

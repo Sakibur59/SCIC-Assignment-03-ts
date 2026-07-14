@@ -15,22 +15,16 @@ const client = new OAuth2Client(
 );
 
 const generateToken = (id: string, role: string): string => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET!, {
-    expiresIn: process.env.JWT_EXPIRE,
-  });
+  const secret = process.env.JWT_SECRET || 'default_secret';
+  return jwt.sign({ id, role }, secret, { expiresIn: process.env.JWT_EXPIRE || '7d' as any });
 };
 
-// ✅ Google Login with Token (Direct - Updated)
-export const googleLogin = async (req: Request, res: Response) => {
+export const googleLogin = async (req: Request, res: Response): Promise<void> => {
   try {
     const { credential, id_token, userInfo, role } = req.body;
 
     console.log('📥 Google login request received');
-    console.log('🔑 Has credential:', !!credential);
-    console.log('🔑 Has id_token:', !!id_token);
-    console.log('👤 User info:', userInfo);
 
-    // ✅ Try to verify with id_token first, then fallback to credential
     let payload: any = null;
 
     if (id_token) {
@@ -47,7 +41,7 @@ export const googleLogin = async (req: Request, res: Response) => {
       }
     }
 
-    // ✅ Fallback: use userInfo from frontend
+    // Fallback: use userInfo from frontend
     if (!payload && userInfo) {
       console.log('📱 Using userInfo from frontend as fallback');
       payload = {
@@ -58,17 +52,14 @@ export const googleLogin = async (req: Request, res: Response) => {
       };
     }
 
-    // ✅ Final fallback: use credential to get user info
+    // Final fallback: use credential
     if (!payload && credential) {
       console.log('🔄 Trying to get user info from credential...');
       try {
         const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: {
-            Authorization: `Bearer ${credential}`,
-          },
+          headers: { Authorization: `Bearer ${credential}` },
         });
-        const data = await userInfoResponse.json();
-        console.log('👤 User info from credential:', data);
+        const data: any = await userInfoResponse.json();
         payload = {
           email: data.email,
           name: data.name,
@@ -82,21 +73,18 @@ export const googleLogin = async (req: Request, res: Response) => {
 
     if (!payload || !payload.email) {
       console.error('❌ Could not get user email from any source');
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Could not get user information from Google',
       });
+      return;
     }
 
     const { email, name, picture, sub } = payload;
 
-    console.log('👤 User data:', { email, name, picture });
-
-    // ✅ Check if user exists
     let user = await UserModel.findByEmail(email);
 
     if (!user) {
-      // ✅ Create new user with selected role
       const userRole = role || 'patient';
       user = await UserModel.create({
         name: name || 'Google User',
@@ -108,7 +96,6 @@ export const googleLogin = async (req: Request, res: Response) => {
         address: '',
       });
 
-      // ✅ Create role-specific profile
       if (userRole === 'patient') {
         await PatientModel.create({
           userId: user._id!,
@@ -126,9 +113,7 @@ export const googleLogin = async (req: Request, res: Response) => {
       }
     }
 
-    // ✅ Generate JWT
     const token = generateToken(user._id!.toString(), user.role);
-
     const { password: _, ...userWithoutPassword } = user;
 
     res.status(200).json({
@@ -147,8 +132,7 @@ export const googleLogin = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ Google Auth URL
-export const getGoogleAuthURL = async (req: Request, res: Response) => {
+export const getGoogleAuthURL = async (req: Request, res: Response): Promise<void> => {
   try {
     const url = client.generateAuthUrl({
       access_type: 'offline',
@@ -173,16 +157,16 @@ export const getGoogleAuthURL = async (req: Request, res: Response) => {
   }
 };
 
-// ✅ Google Callback
-export const googleCallback = async (req: Request, res: Response) => {
+export const googleCallback = async (req: Request, res: Response): Promise<void> => {
   try {
     const { code } = req.query;
 
     if (!code) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Authorization code is required',
       });
+      return;
     }
 
     const { tokens } = await client.getToken(code as string);
@@ -192,7 +176,7 @@ export const googleCallback = async (req: Request, res: Response) => {
       url: 'https://www.googleapis.com/oauth2/v1/userinfo?alt=json',
     });
 
-    const googleUser = userInfoResponse.data;
+    const googleUser: any = userInfoResponse.data;
 
     let user = await UserModel.findByEmail(googleUser.email);
 
@@ -214,7 +198,6 @@ export const googleCallback = async (req: Request, res: Response) => {
     }
 
     const token = generateToken(user._id!.toString(), user.role);
-
     const { password: _, ...userWithoutPassword } = user;
 
     const frontendUrl = process.env.CLIENT_URL || 'http://localhost:3000';

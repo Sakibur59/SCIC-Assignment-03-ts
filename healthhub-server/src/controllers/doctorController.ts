@@ -2,8 +2,15 @@ import { Request, Response } from "express";
 import { db } from "../config/database";
 import { ObjectId } from "mongodb";
 
+// Helper function for safe ObjectId conversion
+const toObjectId = (id: string | any): ObjectId => {
+  if (id instanceof ObjectId) return id;
+  if (typeof id === 'string') return new ObjectId(id);
+  throw new Error('Invalid ID format');
+};
+
 // ✅ Get all doctors
-export const getDoctors = async (req: Request, res: Response) => {
+export const getDoctors = async (req: Request, res: Response): Promise<void> => {
   try {
     console.log("📋 Fetching all doctors with user data...");
 
@@ -78,12 +85,13 @@ export const getDoctors = async (req: Request, res: Response) => {
 };
 
 // ✅ Get single doctor by ID
-export const getDoctor = async (req: Request, res: Response) => {
+export const getDoctor = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const collection = db.getCollection("doctors");
+    
     const pipeline = [
-      { $match: { _id: new ObjectId(id) } },
+      { $match: { _id: toObjectId(id) } },
       {
         $lookup: {
           from: "users",
@@ -119,11 +127,13 @@ export const getDoctor = async (req: Request, res: Response) => {
     const doctor = result[0];
 
     if (!doctor) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "Doctor not found",
       });
+      return;
     }
+
     const formattedDoctor = {
       _id: doctor._id,
       name: doctor.name || "Doctor",
@@ -156,13 +166,13 @@ export const getDoctor = async (req: Request, res: Response) => {
 };
 
 // ✅ Get doctor by userId (for doctor settings)
-export const getDoctorByUserId = async (req: Request, res: Response) => {
+export const getDoctorByUserId = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
     const collection = db.getCollection("doctors");
 
     const pipeline = [
-      { $match: { userId: new ObjectId(userId) } },
+      { $match: { userId: toObjectId(userId) } },
       {
         $lookup: {
           from: "users",
@@ -198,10 +208,11 @@ export const getDoctorByUserId = async (req: Request, res: Response) => {
     const doctor = result[0];
 
     if (!doctor) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "Doctor not found for this user",
       });
+      return;
     }
 
     const formattedDoctor = {
@@ -236,7 +247,7 @@ export const getDoctorByUserId = async (req: Request, res: Response) => {
 };
 
 // ✅ Get doctors by specialization
-export const getDoctorsBySpecialization = async (req: Request, res: Response) => {
+export const getDoctorsBySpecialization = async (req: Request, res: Response): Promise<void> => {
   try {
     const { specialization } = req.params;
     const collection = db.getCollection("doctors");
@@ -309,7 +320,7 @@ export const getDoctorsBySpecialization = async (req: Request, res: Response) =>
 };
 
 // ✅ Search doctors
-export const searchDoctors = async (req: Request, res: Response) => {
+export const searchDoctors = async (req: Request, res: Response): Promise<void> => {
   try {
     const { q } = req.query;
     const collection = db.getCollection("doctors");
@@ -389,8 +400,8 @@ export const searchDoctors = async (req: Request, res: Response) => {
   }
 };
 
-
-export const updateDoctor = async (req: Request, res: Response) => {
+// ✅ Update doctor
+export const updateDoctor = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const {
@@ -403,21 +414,22 @@ export const updateDoctor = async (req: Request, res: Response) => {
 
     const collection = db.getCollection("doctors");
 
-  
+    // Update doctor collection
     const result = await collection.findOneAndUpdate(
-      { _id: new ObjectId(id) },
+      { _id: toObjectId(id) },
       { $set: { ...doctorFields, updatedAt: new Date() } },
       { returnDocument: "after" },
     );
 
     if (!result) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "Doctor not found",
       });
+      return;
     }
 
-
+    // Update user collection
     const usersCollection = db.getCollection("users");
 
     const userUpdate: Record<string, any> = {};
@@ -433,6 +445,7 @@ export const updateDoctor = async (req: Request, res: Response) => {
       );
     }
 
+    // Get updated user
     const user = await usersCollection.findOne({ _id: result.userId });
 
     const formattedDoctor = {
@@ -466,3 +479,51 @@ export const updateDoctor = async (req: Request, res: Response) => {
   }
 };
 
+// ✅ Delete doctor (for admin)
+export const deleteDoctor = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const collection = db.getCollection("doctors");
+
+    // Get doctor to find userId
+    const doctor = await collection.findOne({ _id: toObjectId(id) });
+
+    if (!doctor) {
+      res.status(404).json({
+        success: false,
+        message: "Doctor not found",
+      });
+      return;
+    }
+
+    // Delete from doctors collection
+    const result = await collection.deleteOne({ _id: toObjectId(id) });
+
+    if (result.deletedCount === 0) {
+      res.status(404).json({
+        success: false,
+        message: "Doctor not found",
+      });
+      return;
+    }
+
+    // Delete from users collection
+    if (doctor.userId) {
+      const usersCollection = db.getCollection("users");
+      await usersCollection.deleteOne({ _id: doctor.userId });
+    }
+
+    console.log(`✅ Doctor deleted: ${doctor.name}`);
+
+    res.status(200).json({
+      success: true,
+      message: "Doctor deleted successfully",
+    });
+  } catch (error: any) {
+    console.error("❌ Error deleting doctor:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to delete doctor",
+    });
+  }
+};

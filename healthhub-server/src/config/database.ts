@@ -1,10 +1,4 @@
-import { MongoClient, Db, Collection } from 'mongodb';
-import {
-  IUser,
-  IDoctor,
-  IPatient,
-  IAppointment,
-} from '../types';
+import { MongoClient, Db, Collection, Document } from 'mongodb';
 
 class Database {
   private static instance: Database;
@@ -35,7 +29,6 @@ class Database {
       this.db = this.client.db(dbName);
 
       console.log(`✅ MongoDB Connected Successfully to ${dbName}`);
-      
       await this.createIndexes();
     } catch (error) {
       console.error('❌ MongoDB Connection Error:', error);
@@ -64,7 +57,8 @@ class Database {
     return this.db;
   }
 
-  public getCollection<T>(name: string): Collection<T> {
+  // ✅ Fix: Add extends Document constraint
+  public getCollection<T extends Document>(name: string): Collection<T> {
     return this.getDb().collection<T>(name);
   }
 

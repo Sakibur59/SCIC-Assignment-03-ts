@@ -6,12 +6,15 @@ import { DoctorModel } from "../models/DoctorModel";
 import { RegisterRequest, LoginRequest } from "../types";
 import { ObjectId } from "mongodb";
 
+// ✅ Fix: JWT sign with proper options
 const generateToken = (id: string, role: string): string => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET!, {
-    expiresIn: process.env.JWT_EXPIRE,
-  });
+  const secret = process.env.JWT_SECRET || 'default_secret_for_dev';
+  const expiresIn = process.env.JWT_EXPIRE || '7d';
+
+    const payload = { id, role };
+  return jwt.sign(payload, secret, { expiresIn: expiresIn as any });
 };
-export const register = async (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       name,
@@ -29,10 +32,11 @@ export const register = async (req: Request, res: Response) => {
 
     const existingUser = await UserModel.findByEmail(email);
     if (existingUser) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: "User already exists with this email",
       });
+      return;
     }
 
     const user = await UserModel.create({
@@ -78,31 +82,34 @@ export const register = async (req: Request, res: Response) => {
   }
 };
 
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body as LoginRequest;
 
     if (!email || !password) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: "Please provide email and password",
       });
+      return;
     }
 
     const user = await UserModel.findByEmail(email);
     if (!user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: "Invalid credentials",
       });
+      return;
     }
 
     const isPasswordMatch = await UserModel.comparePassword(user, password);
     if (!isPasswordMatch) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: "Invalid credentials",
       });
+      return;
     }
 
     const token = generateToken(user._id!.toString(), user.role);
@@ -124,17 +131,19 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const getMe = async (req: any, res: Response) => {
+export const getMe = async (req: any, res: Response): Promise<void> => {
   try {
     const userId = req.userId;
     const user = await UserModel.findById(userId);
 
     if (!user) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "User not found",
       });
+      return;
     }
+
     let roleData = null;
     if (user.role === "patient") {
       roleData = await PatientModel.findByUserId(userId);
@@ -158,7 +167,7 @@ export const getMe = async (req: any, res: Response) => {
   }
 };
 
-export const updateProfile = async (req: any, res: Response) => {
+export const updateProfile = async (req: any, res: Response): Promise<void> => {
   try {
     const userId = req.userId;
     const {
@@ -179,7 +188,6 @@ export const updateProfile = async (req: any, res: Response) => {
       updatedAt: new Date(),
     };
 
-
     if (profilePicture !== undefined) {
       userUpdateData.profilePicture = profilePicture;
     }
@@ -187,13 +195,13 @@ export const updateProfile = async (req: any, res: Response) => {
     const updatedUser = await UserModel.update(userId, userUpdateData);
 
     if (!updatedUser) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "User not found",
       });
+      return;
     }
 
-    // ✅ Update patient profile (if role is patient)
     if (req.user.role === "patient") {
       const patientUpdateData: any = {
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
@@ -203,7 +211,6 @@ export const updateProfile = async (req: any, res: Response) => {
         updatedAt: new Date(),
       };
 
-      // Remove undefined fields
       Object.keys(patientUpdateData).forEach((key) => {
         if (patientUpdateData[key] === undefined) {
           delete patientUpdateData[key];
@@ -224,7 +231,6 @@ export const updateProfile = async (req: any, res: Response) => {
         updatedAt: new Date(),
       };
 
-      // Remove undefined fields
       Object.keys(doctorUpdateData).forEach((key) => {
         if (doctorUpdateData[key] === undefined) {
           delete doctorUpdateData[key];
@@ -262,16 +268,17 @@ export const updateProfile = async (req: any, res: Response) => {
   }
 };
 
-export const updateProfilePicture = async (req: any, res: Response) => {
+export const updateProfilePicture = async (req: any, res: Response): Promise<void> => {
   try {
     const userId = req.userId;
     const { profilePicture } = req.body;
 
     if (!profilePicture) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: "Profile picture is required",
       });
+      return;
     }
 
     const updatedUser = await UserModel.update(userId, {
@@ -280,10 +287,11 @@ export const updateProfilePicture = async (req: any, res: Response) => {
     });
 
     if (!updatedUser) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "User not found",
       });
+      return;
     }
 
     res.status(200).json({
